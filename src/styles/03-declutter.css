@@ -1,0 +1,119 @@
+/* ---- Declutter: keep the canvas and the equations, hide the rest ---- */
+.scene-head,
+.legend,
+.tiny-note,
+.frame-corner,
+.panel-foot,
+.row-label,
+#status,
+.brand small,
+.mode-switch,
+#drift {
+  display: none !important;
+}
+body.is3d #drift {
+  display: inline-flex !important;
+}
+.topbar {
+  height: 60px;
+  border-bottom: 1px solid #ffffff10;
+}
+aside {
+  top: 76px;
+  max-height: calc(100% - 160px);
+}
+.hd {
+  padding: 14px 18px;
+  font-size: 13px;
+  color: var(--dim);
+}
+.row {
+  padding: 14px 15px;
+}
+.dot {
+  margin-top: 6px;
+}
+.x {
+  margin-top: 7px;
+}
+.entry {
+  height: 34px;
+}
+.panel-actions {
+  padding: 12px 15px;
+  align-items: center;
+}
+.panel-actions #add {
+  flex: 1;
+}
+#more {
+  padding: 9px 12px;
+  color: var(--dim);
+}
+.panel-actions .extra {
+  display: none;
+  flex: 1 0 100%;
+  gap: 8px;
+}
+.panel-actions.open .extra {
+  display: flex;
+}
+.panel-actions .extra button {
+  flex: 1;
+}
+.bottom-bar {
+  left: 28px;
+  bottom: 18px;
+}
+.scenes {
+  background: transparent;
+  border: 0;
+  box-shadow: none;
+  backdrop-filter: none;
+  padding: 0;
+}
+.scenes button {
+  color: #77726b;
+}
+.scenes button.active {
+  background: transparent;
+  color: var(--ink);
+  text-decoration: underline;
+  text-decoration-color: var(--em);
+  text-underline-offset: 6px;
+}
+#rp {
+  padding: 8px 12px;
+  background: none;
+  border-color: var(--ln);
+  color: var(--dim);
+}
+#co {
+  bottom: auto;
+  top: 76px;
+  left: auto;
+  right: 28px;
+  text-align: right;
+  color: #9a938a;
+}
+#tools {
+  top: 80px;
+}
+@media (max-width: 720px) {
+  aside {
+    top: auto;
+  }
+  #co {
+    display: none;
+  }
+  .bottom-bar {
+    left: 16px;
+    bottom: calc(38% + 10px);
+  }
+}
+.panel-actions .extra {
+  flex-wrap: wrap;
+}
+.panel-actions .extra button {
+  flex: 1 0 42%;
+}

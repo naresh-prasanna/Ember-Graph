@@ -1,0 +1,621 @@
+/* Expression list: a docked table with an index gutter, ending in an empty row to type into. */
+aside {
+  overflow: visible;
+}
+.hd {
+  position: relative;
+  gap: 10px;
+  justify-content: flex-start;
+  height: 46px;
+  padding: 0 8px 0 16px;
+}
+.hd small {
+  margin-right: auto;
+}
+#more {
+  width: 30px;
+  height: 30px;
+  padding: 0;
+  border: 1px solid transparent;
+  border-radius: 7px;
+  font: 300 20px/1 var(--sans);
+  color: #cbbfae;
+  background: none;
+  transition:
+    color 0.15s,
+    background 0.15s,
+    border-color 0.15s;
+}
+#more:hover,
+#more[aria-expanded='true'] {
+  color: var(--hot);
+  border-color: #ff783b40;
+  background: #ff783b12;
+}
+.panel-actions {
+  position: absolute;
+  z-index: 8;
+  top: 42px;
+  right: 8px;
+  display: none;
+  width: 190px;
+  padding: 6px;
+  background: rgba(16, 15, 14, 0.98);
+  border: 1px solid #ffffff14;
+  border-radius: 10px;
+  box-shadow:
+    0 18px 60px #000a,
+    0 0 30px #ff783b0a;
+}
+.panel-actions.open {
+  display: block;
+}
+.panel-actions .extra,
+.panel-actions.open .extra {
+  display: flex;
+  flex-direction: column;
+  gap: 1px;
+}
+.panel-actions .extra button,
+.panel-actions .extra #tb {
+  flex: none;
+  text-align: left;
+  padding: 8px 10px;
+  border: 0;
+  border-radius: 6px;
+  font-size: 11px;
+  color: #cbbfae;
+  background: none;
+}
+.panel-actions .extra button:hover,
+.panel-actions .extra button:focus-visible {
+  color: var(--hot);
+  background: #ff783b14;
+}
+.panel-actions #add {
+  border-style: none;
+}
+.panel-actions #read {
+  margin-top: 5px;
+  border-top: 1px solid #ffffff0d;
+  border-radius: 0 0 6px 6px;
+  padding-top: 11px;
+}
+
+#rows {
+  flex: 1;
+  border-radius: 0 0 12px 12px;
+}
+.row {
+  gap: 0;
+  padding: 0;
+  align-items: stretch;
+  border-bottom: 1px solid #ffffff0b;
+}
+.row:focus-within:before {
+  display: none;
+}
+.gut {
+  flex: none;
+  width: 42px;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 7px;
+  padding-top: 9px;
+  border-right: 1px solid #ffffff0b;
+  background: #ffffff03;
+  transition:
+    background 0.2s,
+    box-shadow 0.2s;
+}
+.idx {
+  font: 9px var(--mono);
+  color: #6c665f;
+}
+.gut .dot {
+  align-self: center;
+  margin: 0;
+}
+.row:focus-within .gut {
+  background: #ff783b14;
+  box-shadow: inset 2px 0 var(--em);
+}
+.row:focus-within .idx {
+  color: var(--hot);
+}
+.col {
+  padding: 10px 6px 10px 14px;
+}
+.x {
+  margin: 13px 10px 0 0;
+}
+.row.blank .dot,
+.row.blank .x {
+  visibility: hidden;
+}
+.row.blank:not(:focus-within) .gut {
+  background: none;
+}
+.row:focus-within:not(:has(.mq:focus)) .equation-display {
+  display: block;
+}
+.row:focus-within:not(:has(.mq:focus)) .mq {
+  position: absolute;
+  height: 0;
+  opacity: 0;
+  overflow: hidden;
+  pointer-events: none;
+}
+.err.answer {
+  text-align: right;
+  font: 15px/1.4 var(--mono);
+  color: var(--hot);
+  text-shadow: 0 0 16px #ff783b55;
+  padding-top: 2px;
+}
+
+.row.is-table:not(:has(.mq:focus)) .entry,
+.row.is-geo:not(:has(.mq:focus)) .entry {
+  display: none;
+}
+.geo-card {
+  display: grid;
+  gap: 5px;
+  padding: 4px 0 6px;
+}
+.geo-head {
+  display: flex;
+  align-items: baseline;
+  gap: 10px;
+  font:
+    19px 'Cambria Math',
+    'STIX Two Math',
+    Georgia,
+    serif;
+  color: #eee5d9;
+}
+.geo-head b {
+  font-weight: 400;
+}
+.geo-head > span {
+  font: 10px var(--mono);
+  letter-spacing: 0.06em;
+  text-transform: uppercase;
+  color: var(--dim);
+}
+.geo-card code {
+  display: -webkit-box;
+  -webkit-line-clamp: 2;
+  -webkit-box-orient: vertical;
+  overflow: hidden;
+  font: 11px/1.5 var(--mono);
+  color: #b9ad9e;
+  overflow-wrap: anywhere;
+}
+.geo-card small {
+  font: 11px var(--mono);
+  color: var(--curve, var(--hot));
+}
+.helpers {
+  border-bottom: 1px solid #ffffff0b;
+}
+.helpers-head {
+  display: flex;
+  align-items: baseline;
+  gap: 10px;
+  width: 100%;
+  padding: 14px 17px;
+  text-align: left;
+  border: 0;
+  border-radius: 0;
+  color: #d6c9b8;
+}
+.helpers-head b {
+  font: 400 11px var(--mono);
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+}
+.helpers-head small {
+  margin-left: auto;
+  font: 10px var(--mono);
+  color: var(--dim);
+}
+.helpers-arrow {
+  align-self: center;
+  width: 6px;
+  height: 6px;
+  border-right: 1.5px solid currentColor;
+  border-bottom: 1.5px solid currentColor;
+  transform: rotate(-45deg);
+  transition: transform 0.2s cubic-bezier(0.2, 0, 0, 1);
+}
+.helpers.open .helpers-arrow {
+  transform: rotate(45deg);
+}
+.helpers-body {
+  display: none;
+}
+.helpers.open .helpers-body {
+  display: block;
+  background: #00000024;
+}
+.helpers-body .row {
+  padding-top: 8px;
+  padding-bottom: 8px;
+}
+.helpers-body .geo-card {
+  gap: 2px;
+  padding: 0;
+}
+.helpers-body .geo-head {
+  font-size: 16px;
+}
+@media (prefers-reduced-motion: reduce) {
+  .helpers-arrow {
+    transition: none;
+  }
+}
+.row.off .geo-card code {
+  -webkit-line-clamp: 1;
+}
+.row.off .geo-card small {
+  color: var(--dim);
+}
+.geo-head sub {
+  font-size: 0.65em;
+}
+.geo-head .box-toggle {
+  margin-left: auto;
+  padding: 4px 9px;
+  font: 10px var(--mono);
+  letter-spacing: 0.05em;
+  text-transform: uppercase;
+  color: var(--dim);
+}
+.geo-head .box-toggle[aria-pressed='true'] {
+  color: var(--em);
+}
+.box-panel {
+  display: grid;
+  gap: 9px;
+  margin-top: 6px;
+  padding: 10px 0 2px;
+  border-top: 1px solid #ffffff12;
+}
+.box-size {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  font:
+    15px 'Cambria Math',
+    Georgia,
+    serif;
+  color: #d6c9b8;
+}
+.box-size button {
+  min-width: 30px;
+  padding: 3px 7px;
+  font: 12px var(--mono);
+}
+.box-size b {
+  font-weight: 400;
+  color: #eee5d9;
+  font-variant-numeric: tabular-nums;
+}
+.box-size .box-n {
+  margin-left: auto;
+  color: var(--dim);
+}
+.box-size .box-n b {
+  color: var(--curve, var(--hot));
+}
+.box-fit {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+}
+.box-fit > div {
+  display: grid;
+  gap: 2px;
+}
+.box-fit span {
+  font: 10px var(--mono);
+  letter-spacing: 0.06em;
+  text-transform: uppercase;
+  color: var(--dim);
+}
+.box-fit b {
+  font:
+    400 22px 'Cambria Math',
+    Georgia,
+    serif;
+  color: #f3d9bd;
+  font-variant-numeric: tabular-nums;
+}
+.geo-card .box-fit small,
+.geo-card .box-note {
+  font: 10px/1.5 var(--mono);
+  color: #8d847a;
+}
+.box-fit svg {
+  flex: none;
+  overflow: visible;
+}
+.box-fit line {
+  stroke: var(--curve, var(--hot));
+  stroke-opacity: 0.55;
+  stroke-width: 1.2;
+}
+.box-fit circle {
+  fill: #d6c9b8;
+}
+.box-fit circle.on {
+  fill: var(--curve, var(--hot));
+}
+.tbl-box {
+  padding: 4px 0 6px;
+  min-width: 0;
+}
+.tbl-scroll {
+  max-width: 100%;
+  max-height: 420px;
+  overflow: auto;
+  overscroll-behavior: contain;
+  scrollbar-width: thin;
+  scrollbar-color: #ffffff22 transparent;
+}
+.tbl {
+  width: auto;
+  border-collapse: collapse;
+  border-spacing: 0;
+  margin: 0;
+  font:
+    16px 'Cambria Math',
+    'STIX Two Math',
+    Georgia,
+    serif;
+}
+.tbl th {
+  position: sticky;
+  top: 0;
+  z-index: 1;
+  padding: 0;
+  font: inherit;
+  font-weight: 400;
+  color: #e6dacb;
+  text-align: center;
+  background: #121314;
+  border-bottom: 1px solid #ffffff2e;
+}
+.tbl th + th,
+.tbl td + td {
+  border-left: 1px solid #ffffff2e;
+}
+.tbl td {
+  padding: 0;
+  border-bottom: 1px solid #ffffff0c;
+}
+.row .col .tbl input[type='text'] {
+  display: block;
+  position: static;
+  width: 88px;
+  height: auto;
+  margin: 0;
+  padding: 7px 10px;
+  border: 0;
+  border-radius: 0;
+  background: none;
+  color: #eee5d9;
+  font: inherit;
+  text-align: center;
+  outline: none;
+  transition:
+    background 0.15s,
+    box-shadow 0.15s;
+}
+.row .col .tbl th input[type='text'] {
+  padding: 8px 10px 9px 20px;
+}
+.tbl input:hover {
+  background: #ffffff05;
+}
+.tbl input:focus {
+  background: #ff783b12;
+  box-shadow: inset 0 -1.5px var(--em);
+}
+.tbl input.bad {
+  color: #ff9b76;
+  box-shadow: inset 0 -1px #ff9b7680;
+}
+.row .col .tbl input.calc {
+  color: #b9ad9e;
+  font-style: italic;
+  cursor: default;
+}
+.tbl input.calc:hover {
+  background: none;
+}
+.tbl tbody tr:last-child input:not(:focus) {
+  background: none;
+}
+/* Headings are typeset over their input and swap to the raw text while being edited. */
+.th-math {
+  position: absolute;
+  inset: 0 0 0 10px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  pointer-events: none;
+  white-space: nowrap;
+  overflow: hidden;
+}
+.th-math:empty {
+  display: none;
+}
+.row .col .tbl th:has(.th-math:not(:empty)) input:not(:focus) {
+  color: transparent;
+}
+.tbl th:has(input:focus) .th-math {
+  display: none;
+}
+.row .col .tbl .th-new input[type='text'],
+.row .col .tbl .td-new input[type='text'] {
+  width: 44px;
+  padding-left: 6px;
+  padding-right: 6px;
+}
+.tbl .th-new input::placeholder {
+  color: #ffffff40;
+  font: 300 18px var(--sans);
+}
+.tbl .th-new input:focus::placeholder {
+  color: transparent;
+}
+.tbl .td-new input:not(:focus) {
+  opacity: 0.45;
+}
+.tbl .pt-dot {
+  position: absolute;
+  z-index: 2;
+  top: 50%;
+  left: 7px;
+  width: 9px;
+  height: 9px;
+  margin: -4.5px 0 0;
+  padding: 0;
+  border: 1.5px solid var(--curve);
+  border-radius: 50%;
+  background: var(--curve);
+  box-shadow: 0 0 10px var(--curve);
+  cursor: pointer;
+  transition:
+    background 0.15s,
+    box-shadow 0.15s,
+    transform 0.15s;
+}
+.tbl .pt-dot:hover {
+  transform: scale(1.25);
+}
+.tbl .pt-dot.off {
+  background: transparent;
+  box-shadow: none;
+  opacity: 0.6;
+}
+.pt-dot:focus-visible {
+  outline: 1px solid var(--hot);
+  outline-offset: 2px;
+}
+.tbl-note {
+  margin: 8px 0 0;
+  font: 11px/1.5 var(--sans);
+  color: #ffb08c;
+}
+.tbl-fitbar {
+  display: grid;
+  gap: 8px;
+  margin-top: 10px;
+}
+.tbl-fitline {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 6px;
+}
+.tbl-select {
+  max-width: 100%;
+  padding: 5px 24px 5px 9px;
+  font: 11px var(--mono);
+  color: #d8ccbb;
+  background: #15120f
+    url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='10' height='6'%3E%3Cpath d='M1 1l4 4 4-4' fill='none' stroke='%23a89a88' stroke-width='1.4'/%3E%3C/svg%3E")
+    no-repeat right 8px center;
+  border: 1px solid #ffffff18;
+  border-radius: 6px;
+  appearance: none;
+  cursor: pointer;
+  transition:
+    border-color 0.15s,
+    color 0.15s;
+}
+.tbl-select:hover,
+.tbl-select:focus-visible {
+  border-color: #ff783b55;
+  color: var(--hot);
+  outline: none;
+}
+.tbl-select option {
+  background: #15120f;
+  color: #e6dacb;
+}
+.rcard.tbl-stats {
+  margin-top: 0;
+}
+.tbl-stats .rg span {
+  overflow-wrap: anywhere;
+}
+.tbl-copy {
+  margin-top: 8px;
+  padding: 5px 9px;
+  font: 10px var(--mono);
+  letter-spacing: 0.04em;
+  color: #cbbfae;
+  background: none;
+  border: 1px solid #ffffff18;
+  border-radius: 6px;
+  cursor: pointer;
+  transition:
+    border-color 0.15s,
+    color 0.15s;
+}
+.tbl-copy:hover,
+.tbl-copy:focus-visible {
+  border-color: #ff783b55;
+  color: var(--hot);
+  outline: none;
+}
+
+@media (max-width: 720px) {
+  .panel-actions {
+    top: auto;
+    bottom: calc(100% - 6px);
+  }
+}
+@media (min-width: 721px) {
+  aside {
+    top: 60px;
+    left: 0;
+    bottom: 0;
+    width: 340px;
+    max-height: none;
+    border: 0;
+    border-right: 1px solid #ffffff10;
+    border-radius: 0;
+    background: linear-gradient(180deg, #121314f2, #0d0e0ff2);
+    box-shadow: 18px 0 60px #0005;
+  }
+  #rows {
+    border-radius: 0;
+  }
+  .bottom-bar {
+    left: 368px;
+  }
+}
+@media (min-width: 1600px) {
+  aside {
+    width: 360px;
+    left: 0;
+  }
+  .bottom-bar {
+    left: 388px;
+  }
+}
+@media (min-width: 721px) and (max-width: 1050px) {
+  aside {
+    width: 290px;
+    left: 0;
+  }
+  .bottom-bar {
+    left: 312px;
+  }
+}

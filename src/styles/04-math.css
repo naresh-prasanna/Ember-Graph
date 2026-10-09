@@ -1,0 +1,185 @@
+/* Tables, matrix dialog, high contrast and typeset maths. */
+.tbl {
+  width: 100%;
+  border-collapse: separate;
+  border-spacing: 0 5px;
+  margin-top: 8px;
+}
+.tbl th {
+  font: 9px var(--mono);
+  color: var(--dim);
+  text-align: left;
+  font-weight: 400;
+}
+.tbl input {
+  width: 100%;
+  background: #0d0e0f;
+  border: 1px solid var(--ln);
+  color: var(--ink);
+  padding: 5px;
+  font: 12px var(--mono);
+  border-radius: 4px;
+}
+#mxg input {
+  width: 64px;
+  background: #090a0b;
+  color: var(--ink);
+  border: 1px solid var(--ln);
+  padding: 6px;
+  border-radius: 5px;
+  font: 12px var(--mono);
+}
+#mxo {
+  font: 12px/1.7 var(--mono);
+  color: #d9c6b0;
+  white-space: pre;
+  min-height: 20px;
+}
+#mx select {
+  background: #090a0b;
+  color: var(--ink);
+  border: 1px solid var(--ln);
+  padding: 4px;
+}
+body.hc canvas {
+  filter: contrast(1.5) brightness(1.4);
+}
+body.hc {
+  --ink: #fff;
+  --dim: #d8d3cc;
+}
+.equation-display {
+  display: block;
+  line-height: 34px;
+  font-style: normal;
+  font-family: 'Cambria Math', 'STIX Two Math', Georgia, serif;
+}
+.equation-display i {
+  font-style: italic;
+}
+.equation-display sup,
+.equation-display sub {
+  font-size: 0.62em;
+  line-height: 0;
+  margin: 0;
+  align-self: auto;
+}
+.equation-display sup {
+  vertical-align: super;
+}
+.equation-display sub {
+  vertical-align: -0.28em;
+}
+.sl > span {
+  display: inline-block;
+  min-width: 30px;
+  font:
+    15px 'Cambria Math',
+    Georgia,
+    serif;
+  color: #d6c9b8;
+}
+.sl > span sub {
+  font-size: 0.65em;
+}
+.rcard {
+  margin-top: 12px;
+}
+.rh {
+  font: 9px var(--mono);
+  letter-spacing: 1.3px;
+  color: var(--dim);
+  margin: 12px 0 7px;
+}
+.rg {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 6px 26px;
+  font:
+    17px 'Cambria Math',
+    Georgia,
+    serif;
+  color: #e9dfd0;
+}
+.rg span {
+  white-space: nowrap;
+}
+.rg sub {
+  font-size: 0.65em;
+}
+
+.entry {
+  height: auto;
+  min-height: 36px;
+  display: block;
+}
+.equation-display {
+  position: relative;
+  inset: auto;
+  display: block;
+  white-space: normal;
+  overflow: visible;
+  min-height: 36px;
+  line-height: 1.5;
+  padding: 5px 0;
+  overflow-wrap: anywhere;
+}
+.row:focus-within .equation-display {
+  display: block;
+  visibility: visible;
+}
+.col input[type='text'] {
+  position: absolute;
+  inset: 0;
+  width: 100%;
+  height: 100%;
+}
+.frac {
+  display: inline-flex;
+  flex-direction: column;
+  vertical-align: middle;
+  text-align: center;
+  margin: 0 3px;
+  line-height: 1.2;
+  font-size: 0.92em;
+}
+.frac > span:first-child {
+  border-bottom: 1px solid currentColor;
+  padding: 0 4px 1px;
+}
+.frac > span:last-child {
+  padding: 1px 4px 0;
+}
+.rad {
+  display: inline-flex;
+  align-items: stretch;
+  vertical-align: middle;
+}
+.rs {
+  font-size: 1.15em;
+  margin-right: 1px;
+}
+.radc {
+  border-top: 1.5px solid currentColor;
+  padding: 0 3px;
+  margin-top: 3px;
+}
+
+::selection {
+  background: rgba(255, 120, 59, 0.55);
+  color: #fff;
+}
+input::selection,
+textarea::selection {
+  background: rgba(255, 120, 59, 0.6);
+  color: #fff;
+}
+.row:focus-within .col input[type='text'] {
+  position: static;
+  height: 30px;
+  margin-top: 4px;
+  padding: 6px 0 4px;
+  border-top: 1px solid var(--ln);
+  font: 12px var(--mono);
+  color: #cbbfae;
+}

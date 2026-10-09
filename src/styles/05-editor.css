@@ -1,0 +1,117 @@
+/* Structured maths editor. */
+.col input[type='text'] {
+  display: none;
+}
+.mq {
+  display: none;
+  position: relative;
+  font:
+    23px/1.5 'Cambria Math',
+    'STIX Two Math',
+    Georgia,
+    serif;
+  color: var(--hot);
+  min-height: 36px;
+  padding: 5px 0;
+  outline: none;
+  cursor: text;
+  overflow-wrap: anywhere;
+}
+.row:focus-within .mq {
+  display: block;
+}
+.row:focus-within .equation-display {
+  display: none;
+}
+.mq .v {
+  font-style: italic;
+}
+.mq .op {
+  padding: 0 0.2em;
+}
+.mq .pb {
+  font-size: 1.12em;
+}
+.mq .blk.e {
+  display: inline-block;
+  min-width: 0.55em;
+  min-height: 1em;
+  vertical-align: middle;
+  background: rgba(255, 255, 255, 0.08);
+  border-radius: 2px;
+}
+.mq .gh {
+  opacity: 0.32;
+}
+.mq .frac > .blk {
+  display: block;
+}
+.mq .frac > .blk.e {
+  min-width: 0.5em;
+}
+.mq sup {
+  font-size: 0.62em;
+  vertical-align: super;
+  line-height: 0;
+}
+.mq sub {
+  font-size: 0.65em;
+  vertical-align: -0.28em;
+  line-height: 0;
+}
+.mq .cur {
+  display: inline-block;
+  width: 0;
+  height: 1.05em;
+  border-left: 1.6px solid var(--em);
+  vertical-align: text-bottom;
+  margin: 0 -0.8px;
+  animation: mqblink 1s steps(1) infinite;
+}
+@keyframes mqblink {
+  50% {
+    opacity: 0;
+  }
+}
+
+/* Editor must stay focusable: hide visually, not with display:none */
+.mq {
+  display: block;
+  position: absolute;
+  left: 0;
+  right: 0;
+  top: 0;
+  height: 0;
+  opacity: 0;
+  overflow: hidden;
+  pointer-events: none;
+}
+.row:focus-within .mq {
+  position: relative;
+  height: auto;
+  opacity: 1;
+  overflow: visible;
+  pointer-events: auto;
+}
+.mq > .blk.e {
+  background: none;
+  min-width: 0;
+}
+.mq > .blk.e:after {
+  content: 'Type an equation';
+  font: 13px var(--mono);
+  color: #77736e;
+}
+.equation-display:empty:before {
+  content: 'Type an equation';
+  font: 13px var(--mono);
+  color: #77736e;
+}
+.mq {
+  overflow-wrap: normal;
+}
+.mq .frac,
+.mq .frac .blk,
+.mq .rad {
+  white-space: nowrap;
+}
