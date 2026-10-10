@@ -1,4 +1,6 @@
 import { SYM, math, own } from '../math/catalog.js';
+import { SPELLINGS } from '../math/names.js';
+import { FN_HELP } from '../ui/keyHelp.js';
 
 /* ===== Structured maths editor: type directly into fractions, roots, exponents and subscripts ===== */
 const MQ_FN = [
@@ -8,7 +10,23 @@ const MQ_FN = [
   'sum',
   'prod',
   'fractal',
-].sort((a, b) => b.length - a.length);
+  'pdf',
+  'cdf',
+  'random',
+  'with',
+  'for',
+  'and',
+  'or',
+];
+// π, θ, … back to the letters they were typed as.
+const GLYPH = Object.fromEntries(
+  Object.entries(SYM)
+    .filter(([k]) => k !== 'sqrt')
+    .map(([k, v]) => [v, k]),
+);
+// Typed as one item with its spaces, as Desmos does: "a with a = 2" rather than the product a·w·i·t·h.
+const WORDS = ['with', 'for', 'and', 'or'],
+  isWord = c => typeof c === 'string' && WORDS.includes(c.trim()) && c !== c.trim();
 const isL = c => typeof c === 'string' && /^[A-Za-zα-ω]$/.test(c),
   isD = c => typeof c === 'string' && /^\d$/.test(c),
   isAt = c =>
@@ -27,6 +45,53 @@ function mkNode(t, arrs) {
   }));
   return n;
 }
+/* Names that become a layout with slots as they are typed, as in Desmos: log with its base, Σ with bounds,
+   ⁿ√ with its index. ∫ is only offered as a suggestion, since int is also a fine name for a variable.
+   d/dx comes from typing the fraction itself. Slots, in order:
+   log [base, x]   int [from, to, body, variable]   sum/prod [n = from, to, body]   root [index, x]   deriv [x, body] */
+const TEMPLATES = ['log', 'sum', 'prod', 'nthroot'],
+  BIG = { int: '∫', sum: 'Σ', prod: '∏' },
+  // The slot that holds the expression itself: where space, ( and → lead.
+  MAIN = { log: 1, int: 2, sum: 2, prod: 2, root: 1, deriv: 1 },
+  isTpl = n => !!n && typeof n === 'object' && own(MAIN, n.t);
+function mkTemplate(name) {
+  if (name === 'log') return mkNode('log', [[], []]);
+  if (name === 'int') return mkNode('int', [[], [], [], ['x']]);
+  if (name === 'nthroot') return mkNode('root', [[], []]);
+  return mkNode(name, [['n', '='], [], []]);
+}
+const splitArgs = items =>
+  items.reduce((acc, it) => (it === ',' ? acc.push([]) : acc.at(-1).push(it), acc), [[]]);
+// Saved text back into a template; null leaves the call as plain letters and brackets.
+function fromCall(name, args) {
+  const n = args.length,
+    word = x => x.length > 0 && x.every(isL);
+  if (name === 'log' && n <= 2) return mkNode('log', [args[1] || [], args[0]]);
+  if (name === 'nthroot' && n === 2) return mkNode('root', [args[1], args[0]]);
+  if (name === 'deriv' && n === 2 && word(args[1])) return mkNode('deriv', [args[1], args[0]]);
+  if (name === 'integral' && n === 4 && word(args[1]))
+    return mkNode('int', [args[2], args[3], args[0], args[1]]);
+  if (name === 'integral' && n === 2 && word(args[1])) return mkNode('int', [[], [], args[0], args[1]]);
+  if ((name === 'sum' || name === 'prod') && n === 4 && word(args[1]))
+    return mkNode(name, [[...args[1], '=', ...args[2]], args[3], args[0]]);
+  return null;
+}
+function tplSer(t, [a, b, c, d]) {
+  if (t === 'log') return 'log(' + b + (a ? ',' + a : '') + ')';
+  if (t === 'root') return 'nthroot(' + b + ',' + a + ')';
+  if (t === 'deriv') return 'deriv(' + b + ',' + a + ')';
+  if (t === 'int') return 'integral(' + c + ',' + (d || 'x') + (a || b ? ',' + a + ',' + b : '') + ')';
+  const eq = a.indexOf('=');
+  return t + '(' + c + ',' + (eq < 0 ? 'n,' + a : a.slice(0, eq) + ',' + a.slice(eq + 1)) + ',' + b + ')';
+}
+// A template with nothing filled in, so backspace can take it away.
+const blank = n =>
+  n.blocks.every(
+    (b, k) =>
+      !b.items.length ||
+      (n.t === 'int' && k === 3) ||
+      (BIG[n.t] && k === 0 && b.items.indexOf('=') === b.items.length - 1),
+  );
 export function mqFix(b) {
   for (const it of b.items)
     if (typeof it === 'object') {
@@ -103,6 +168,17 @@ export function parseText(str) {
         a.push(n);
         continue;
       }
+      const call = !isWordChar(str[i - 1]) && str.slice(i).match(/^(log|integral|sum|prod|nthroot|deriv)\(/);
+      if (call) {
+        const from = i;
+        i += call[0].length;
+        const n = fromCall(call[1], splitArgs(items(true)));
+        if (n) {
+          a.push(n);
+          continue;
+        }
+        i = from;
+      }
       if (str.startsWith('sqrt(', i)) {
         i += 5;
         a.push(mkNode('sqrt', [items(true)]));
@@ -125,6 +201,8 @@ export function parseText(str) {
           i++;
           x = items(true);
         } else x = run(/^[+-]?[A-Za-z0-9.α-ω]+/);
+        // x^(^(3)) from a doubled ^ is just x^(3).
+        while (typeof x[0] === 'object' && x[0].t === 'sup') x = [...x[0].blocks[0].items, ...x.slice(1)];
         a.push(mkNode('sup', [x]));
         continue;
       }
@@ -137,6 +215,19 @@ export function parseText(str) {
           d = items(true);
         } else d = run(/^[A-Za-z0-9.α-ω]+/);
         a.push(mkNode('frac', [num, d]));
+        continue;
+      }
+      if (c === '_') {
+        i++;
+        a.push(mkNode('sub', [run(/^[A-Za-z0-9α-ω]+/)]));
+        if (str[i] === ' ') i++;
+        continue;
+      }
+      const kw =
+        (c === ' ' || !isWordChar(str[i - 1])) && str.slice(i).match(/^ *(with|for|and|or)(?![\w(]) */);
+      if (kw) {
+        a.push(' ' + kw[1] + ' ');
+        i += kw[0].length;
         continue;
       }
       if (/[₀-₉]/.test(c)) {
@@ -171,9 +262,38 @@ function symPass(a) {
     if (w !== 'sqrt' && own(SYM, w)) a.splice(i, j - i, SYM[w]);
   }
 }
+const CARET = '\u0001',
+  isWordChar = c => typeof c === 'string' && /[A-Za-z0-9α-ω]/.test(c);
+// A subscript of digits is part of the name (a1); one with letters keeps its underscore, so x_y stays a
+// single name instead of reading as x·y. A space keeps the next letter out of the name.
+const subSer = (it, next) => {
+  const inner = mqSer(it.blocks[0]);
+  return /^\d*$/.test(inner.replace(CARET, '')) ? inner : '_' + inner + (isWordChar(next) ? ' ' : '');
+};
+// Where the cursor falls in the saved text, so completions can work inside brackets and fractions.
+export function mqCaret(st) {
+  const { blk, i } = st.cur;
+  blk.items.splice(i, 0, CARET);
+  const at = mqSer(st.root).indexOf(CARET);
+  blk.items.splice(i, 1);
+  return at;
+}
+export function mqAt(st, pos) {
+  const saved = st.cur,
+    visit = b => {
+      for (let i = 0; i <= b.items.length; i++) {
+        st.cur = { blk: b, i };
+        if (mqCaret(st) === pos) return true;
+        const it = b.items[i];
+        if (it && typeof it === 'object' && it.blocks.some(visit)) return true;
+      }
+      return false;
+    };
+  if (!visit(st.root)) st.cur = saved;
+}
 export function mqSer(b) {
   return b.items
-    .map(it =>
+    .map((it, n) =>
       typeof it === 'string'
         ? it
         : it.t === 'frac'
@@ -186,7 +306,11 @@ export function mqSer(b) {
                 ? '(' + mqSer(it.blocks[0]) + ')'
                 : it.t === 'sup'
                   ? '^(' + mqSer(it.blocks[0]) + ')'
-                  : mqSer(it.blocks[0]),
+                  : it.t === 'sub'
+                    ? subSer(it, b.items[n + 1])
+                    : isTpl(it)
+                      ? tplSer(it.t, it.blocks.map(mqSer))
+                      : mqSer(it.blocks[0]),
     )
     .join('');
 }
@@ -242,7 +366,35 @@ export function mqLeft(st) {
   const n = blk.node;
   if (!n) return;
   const k = n.blocks.indexOf(blk);
-  k > 0 ? mqEnter(st, n, k - 1, true) : mqBefore(st, n);
+  // The two bounds of ∫ and Σ share a column: left from either leaves.
+  k > 0 && !(BIG[n.t] && k === 1) ? mqEnter(st, n, k - 1, true) : mqBefore(st, n);
+}
+/* ↑ and ↓ between the slots stacked above one another: numerator and denominator, the bounds of ∫ and Σ,
+   log's base below its argument. Returns false at the top or bottom, so the row above or below takes over. */
+export function mqVert(st, up) {
+  let b = st.cur.blk;
+  for (let n = b.node; n; b = n.blk, n = b.node) {
+    const k = n.blocks.indexOf(b),
+      t =
+        n.t === 'frac'
+          ? +!up
+          : BIG[n.t]
+            ? +up
+            : n.t === 'log' || n.t === 'deriv'
+              ? k === 1 && !up
+                ? 0
+                : k === 0 && up
+                  ? 1
+                  : k
+              : n.t === 'root'
+                ? +!up
+                : k;
+    if (t !== k) {
+      mqEnter(st, n, t, true);
+      return true;
+    }
+  }
+  return false;
 }
 export function mqRight(st) {
   const { blk, i } = st.cur;
@@ -255,15 +407,21 @@ export function mqRight(st) {
   const n = blk.node;
   if (!n) return;
   const k = n.blocks.indexOf(blk);
-  k < n.blocks.length - 1 ? mqEnter(st, n, k + 1, false) : mqAfter(st, n);
+  // From either bound of ∫ or Σ, on to what is being added up.
+  if (BIG[n.t] && k < 2) mqEnter(st, n, 2, false);
+  // Past the end of ∫'s expression and over dx in one step; ← still reaches the x of dx.
+  else if (n.t === 'int' && k === 2) mqAfter(st, n);
+  else k < n.blocks.length - 1 ? mqEnter(st, n, k + 1, false) : mqAfter(st, n);
 }
-/* Empty slots the cursor has left behind are removed, as in Desmos: a fraction with a blank
-   denominator becomes its numerator, and blank exponents, subscripts, roots, |…| and () vanish.
+/* Empty slots the cursor has left behind are removed: a fraction with a blank denominator becomes its
+   numerator, and blank exponents, subscripts, roots and |…| vanish. A typed ( stays until it is deleted.
    Pass the state with a cursor to keep the slot being typed in; without one everything is tidied. */
 const MARK = { t: 'mark', blocks: [] };
 // Typing / after (a+b) moves a+b into the numerator, so taking the fraction away puts the brackets back.
-const numerator = items =>
-  items.some(it => typeof it === 'string' && '+-−*/=<>≤≥,'.includes(it)) ? [mkNode('paren', [items])] : items;
+const numerator = (items, paren = false) =>
+  paren || items.some(it => typeof it === 'string' && '+-−*/=<>≤≥,'.includes(it))
+    ? [mkNode('paren', [items])]
+    : items;
 const hasMark = b => b.items.some(it => it === MARK || (typeof it === 'object' && it.blocks.some(hasMark)));
 function pruneBlock(b) {
   for (let i = 0; i < b.items.length; i++) {
@@ -273,9 +431,8 @@ function pruneBlock(b) {
     if (n.blocks.some(hasMark)) continue;
     const empty = n.blocks.map(c => !c.items.length);
     let swap = null;
-    if (n.t === 'frac' && empty[1]) swap = numerator(n.blocks[0].items);
+    if (n.t === 'frac' && empty[1]) swap = numerator(n.blocks[0].items, n.paren);
     else if (['sup', 'sub', 'sqrt', 'abs'].includes(n.t) && empty[0]) swap = [];
-    else if (n.t === 'paren' && empty[0] && !isL(b.items[i - 1])) swap = [];
     if (!swap) continue;
     b.items.splice(i, 1, ...swap);
     i += swap.length - 1;
@@ -362,7 +519,7 @@ export function mqBack(st) {
     if (n.t === 'frac' && !blk.items.length) {
       const c = n.blk,
         j = mqIdx(n),
-        top = numerator(n.blocks[0].items);
+        top = numerator(n.blocks[0].items, n.paren);
       c.items.splice(j, 1, ...top);
       mqFix(st.root);
       st.cur = { blk: c, i: j + top.length };
@@ -371,7 +528,7 @@ export function mqBack(st) {
     mqEnter(st, n, k - 1, true);
     return;
   }
-  if (n.blocks.every(b => !b.items.length)) {
+  if (n.blocks.every(b => !b.items.length) || (isTpl(n) && blank(n))) {
     const c = n.blk,
       j = mqIdx(n);
     c.items.splice(j, 1);
@@ -460,8 +617,13 @@ function mqClose(st) {
       }
       break;
     }
-    if (nd.t === 'sqrt' || nd.t === 'abs') {
+    if (nd.t === 'sqrt' || nd.t === 'abs' || (nd.t === 'root' && b === nd.blocks[1])) {
       if (pos > 0 && !nd.swallowed) break;
+      mqAfter(st, nd);
+      return;
+    }
+    // log draws its own brackets, so ) closes them.
+    if (nd.t === 'log' && b === nd.blocks[1]) {
       mqAfter(st, nd);
       return;
     }
@@ -507,6 +669,34 @@ export function mqType(st, ch) {
       mqAfter(st, node);
       return mqType(st, ch);
     }
+    if (isTpl(node)) {
+      const k = node.blocks.indexOf(blk);
+      // log_2 goes to the base, and so does the 2 of log2(8); log100 is log(100).
+      if (node.t === 'log' && k === 1 && ch === '_' && !blk.items.length) {
+        mqEnter(st, node, 0, true);
+        return;
+      }
+      if (
+        node.t === 'log' &&
+        k === 1 &&
+        ch === '(' &&
+        !node.swallowed &&
+        blk.items.length &&
+        blk.items.every(isD) &&
+        st.cur.i === blk.items.length
+      ) {
+        node.blocks[0].items.push(...blk.items.splice(0));
+        node.swallowed = true;
+        st.cur.i = 0;
+        return;
+      }
+      // The body of ∫, Σ, ∏ and d/dx runs on until → leaves it, as in Desmos, so ∫ x sin(x) dx can be typed with a space.
+      if (ch === ' ' && k === MAIN[node.t] && (BIG[node.t] || node.t === 'deriv')) return;
+      if (ch === ' ' || (ch === ')' && k !== MAIN[node.t]) || (ch === '(' && node.t === 'log' && k === 0)) {
+        k === MAIN[node.t] ? mqAfter(st, node) : mqEnter(st, node, MAIN[node.t], false);
+        return;
+      }
+    }
   }
   const ins = x => {
       mqSol(st);
@@ -527,13 +717,20 @@ export function mqType(st, ch) {
       const b = st.cur.blk,
         items = b.items.slice(0, st.cur.i),
         tail = b.items.slice(st.cur.i),
-        n = mkNode('frac', [popOperand(items), []]);
+        last = items.at(-1),
+        top = popOperand(items),
+        n = mkNode('frac', [top, []]);
+      n.paren = typeof last === 'object' && last?.t === 'paren' && top === last.blocks[0].items;
       b.items = items.concat([n], tail);
       mqFix(st.root);
       mqEnter(st, n, 1, false);
       return;
     }
-    if (ch === '^') return put(mkNode('sup', [[]]));
+    if (ch === '^') {
+      // A second ^ at the start of an exponent has nothing to raise.
+      if (node?.t === 'sup' && st.cur.i === 0) return;
+      return put(mkNode('sup', [[]]));
+    }
     if (ch === '_') {
       const n = mkNode('sub', [[]]);
       return put(n);
@@ -564,12 +761,54 @@ export function mqType(st, ch) {
   if (plain) return;
   const it = st.cur.blk.items,
     i = st.cur.i,
-    last = it[i - 1];
+    last = it[i - 1],
+    fr = st.cur.blk.node;
+  // d/dx: once the bottom reads d and a letter, the fraction becomes the derivative, waiting for what to differentiate.
+  if (
+    fr?.t === 'frac' &&
+    st.cur.blk === fr.blocks[1] &&
+    it.length === 2 &&
+    it[0] === 'd' &&
+    isL(last) &&
+    fr.blocks[0].items.join('') === 'd'
+  ) {
+    const n = mkNode('deriv', [[last], []]),
+      c = fr.blk;
+    c.items.splice(mqIdx(fr), 1, n);
+    mqFix(st.root);
+    mqEnter(st, n, 1, false);
+    return;
+  }
   if (isL(last)) {
     let j = i;
     while (j > 0 && isL(it[j - 1])) j--;
-    const w = it.slice(j, i).join('');
-    if (w === 'frac') {
+    const w = it
+        .slice(j, i)
+        .map(c => GLYPH[c] || c)
+        .join(''),
+      kw =
+        !isL(it[i]) &&
+        WORDS.find(
+          k =>
+            w === k ||
+            (w.endsWith(k) && k.length > 2 && ![...MQ_FN, ...SPELLINGS].some(f => f.startsWith(w))),
+        );
+    const tpl =
+      !kw &&
+      !isL(it[i]) &&
+      st.cur.blk.node?.t !== 'sub' &&
+      TEMPLATES.find(k => w === k || (w.length === k.length + 1 && w.endsWith(k)));
+    if (kw) {
+      it.splice(i - kw.length, kw.length, ' ' + kw + ' ');
+      st.cur.i = i - kw.length + 1;
+    } else if (tpl) {
+      const n = mkTemplate(tpl);
+      it.splice(i - tpl.length, tpl.length, n);
+      mqFix(st.root);
+      n.justMade = true;
+      if (tpl === 'log') mqEnter(st, n, 1, false);
+      else mqEnter(st, n, 0, true);
+    } else if (w === 'frac') {
       it.splice(j, 4);
       const n = mkNode('frac', [[], []]);
       it.splice(j, 0, n);
@@ -584,8 +823,17 @@ export function mqType(st, ch) {
         mqFix(st.root);
         mqEnter(st, n, 0, false);
       } else {
-        it.splice(j, w.length, SYM[w]);
+        it.splice(j, i - j, SYM[w]);
         st.cur.i = j + 1;
+      }
+    } else if (!isL(it[i])) {
+      // The run is read the way the parser reads it: "pizza" is one name, so a π typed on the way turns
+      // back into p, i; "pix" is π·x.
+      const pix = w.match(/^pi([xyt])$/),
+        want = pix ? ['π', pix[1]] : [...w];
+      if (want.join('') !== it.slice(j, i).join('')) {
+        it.splice(j, i - j, ...want);
+        st.cur.i = j + want.length;
       }
     }
   } else if (last === '=' && (it[i - 2] === '<' || it[i - 2] === '>')) {
@@ -599,6 +847,41 @@ export function mqType(st, ch) {
     mqFix(st.root);
     mqEnter(st, n, 0, true);
   }
+}
+// A layout picked from the suggestions takes the place of the letters typed to find it.
+export function mqInsert(st, name, drop) {
+  const it = st.cur.blk.items;
+  let j = st.cur.i;
+  while (j > 0 && st.cur.i - j < drop && isL(it[j - 1])) j--;
+  it.splice(j, st.cur.i - j);
+  const n =
+    name === 'sqrt' || name === 'abs'
+      ? mkNode(name, [[]])
+      : name === 'deriv'
+        ? mkNode('deriv', [['x'], []])
+        : mkTemplate(name);
+  it.splice(j, 0, n);
+  mqFix(st.root);
+  n.justMade = true;
+  if (name === 'log' || name === 'deriv') mqEnter(st, n, 1, false);
+  else mqEnter(st, n, 0, isTpl(n));
+}
+// Inside tone( … ) the arguments still to come show faintly: "frequency, gain", then ", gain" after the first.
+function paramHint(items, i, inner) {
+  let j = i;
+  while (j > 0 && isL(items[j - 1])) j--;
+  const name = items.slice(j, i).join(''),
+    sig = name && own(FN_HELP, name) ? FN_HELP[name][0] : '',
+    at = sig.indexOf(name + '(');
+  if (at < 0 || (at > 0 && sig[at - 1] !== '.')) return '';
+  const params = sig
+      .slice(at + name.length + 1, sig.lastIndexOf(')'))
+      .split(/,\s*/)
+      .filter(Boolean),
+    args = splitArgs(inner),
+    k = args.length - 1,
+    rest = args[k].length ? params.slice(k + 1) : params.slice(k);
+  return rest.length ? (args[k].length ? ', ' : '') + rest.join(', ') : '';
 }
 export function mqDraw(st, el) {
   const mk = (t, c) => {
@@ -615,14 +898,16 @@ export function mqDraw(st, el) {
       if (isL(b.items[j])) {
         let k = j;
         while (k < b.items.length && isL(b.items[k])) k++;
-        const run = b.items.slice(j, k).join('');
-        for (let p = 0; p < run.length;) {
-          const f = MQ_FN.find(f => run.startsWith(f, p));
-          if (f) {
-            for (let q = 0; q < f.length; q++) up.add(j + p + q);
-            p += f.length;
-          } else p++;
-        }
+        // The parser reads a run of letters as one name, so only a run that is a whole function name is upright:
+        // "standarddeviation" is the function, while "stand" doesn't contain tan.
+        if (MQ_FN.includes(b.items.slice(j, k).join(''))) for (let q = j; q < k; q++) up.add(q);
+        // Before a bracket, xsin is x·sin, so its sin is upright too.
+        else if (b.items[k] === '(' || b.items[k]?.t === 'paren')
+          for (let q = j + 1; q < k; q++)
+            if (MQ_FN.includes(b.items.slice(q, k).join(''))) {
+              for (let z = q; z < k; z++) up.add(z);
+              break;
+            }
         j = k;
       } else j++;
     }
@@ -634,11 +919,12 @@ export function mqDraw(st, el) {
       if (typeof it === 'string') {
         e = mk(
           'span',
-          (isL(it) && !up.has(i) ? 'v ' : '') +
+          (isWord(it) ? 'kw ' : '') +
+            (isL(it) && !up.has(i) ? 'v ' : '') +
             (/[+\-=<>≤≥]/.test(it) ? 'op' : '') +
             (/[()]/.test(it) ? ' pb' : ''),
         );
-        e.textContent = it === '*' ? '·' : it === '-' ? '−' : it;
+        e.textContent = it === '*' ? '·' : it === '-' ? '−' : it.trim() || it;
       } else if (it.t === 'frac') {
         e = mk('span', 'frac');
         e.append(blockEl(it.blocks[0]), blockEl(it.blocks[1]));
@@ -651,7 +937,58 @@ export function mqDraw(st, el) {
         e.append(r, c);
       } else if (it.t === 'sup') e = blockEl(it.blocks[0], 'sup');
       else if (it.t === 'sub') e = blockEl(it.blocks[0], 'sub');
-      else {
+      else if (it.t === 'log') {
+        e = mk('span', 'nd tpl-log');
+        const name = mk('span', 'fn'),
+          base = blockEl(it.blocks[0], 'sub'),
+          a = mk('span', 'pb'),
+          z = mk('span', 'pb');
+        name.textContent = 'log';
+        base.dataset.ghost = '10';
+        a.textContent = '(';
+        z.textContent = ')';
+        e.append(name, base, a, blockEl(it.blocks[1]), z);
+      } else if (BIG[it.t]) {
+        e = mk('span', 'bigop ' + it.t);
+        const sym = mk('span', 'bo-sym'),
+          lims = mk('span', 'bo-lims');
+        sym.textContent = BIG[it.t];
+        lims.append(blockEl(it.blocks[1]), blockEl(it.blocks[0]));
+        e.append(...(it.t === 'int' ? [sym, lims] : [lims]));
+        if (it.t !== 'int') lims.insertBefore(sym, lims.lastChild);
+        const body = blockEl(it.blocks[2]);
+        body.classList.add('bo-body');
+        e.append(body);
+        if (it.t === 'int') {
+          const d = mk('span', 'bo-d');
+          d.textContent = 'd';
+          e.append(d, blockEl(it.blocks[3]));
+        }
+      } else if (it.t === 'root') {
+        e = mk('span', 'rad');
+        const idx = blockEl(it.blocks[0], 'sup'),
+          r = mk('span', 'rs'),
+          c = blockEl(it.blocks[1]);
+        idx.classList.add('rad-n');
+        r.textContent = '√';
+        c.classList.add('radc');
+        e.append(idx, r, c);
+      } else if (it.t === 'deriv') {
+        e = mk('span', 'nd');
+        const f = mk('span', 'frac'),
+          top = mk('span', 'blk'),
+          bot = mk('span', 'blk'),
+          d = mk('span', 'v'),
+          a = mk('span', 'pb gh'),
+          z = mk('span', 'pb gh');
+        top.textContent = 'd';
+        d.textContent = 'd';
+        bot.append(d, blockEl(it.blocks[0]));
+        f.append(top, bot);
+        a.textContent = '(';
+        z.textContent = ')';
+        e.append(f, a, blockEl(it.blocks[1]), z);
+      } else {
         e = mk('span', 'nd');
         const a = mk('span', 'pb'),
           z = mk('span', 'pb'),
@@ -661,6 +998,12 @@ export function mqDraw(st, el) {
         if (it.gl) a.classList.add('gh');
         if (it.gr) z.classList.add('gh');
         e.append(a, blockEl(it.blocks[0]), z);
+        const hint = st.cur.blk === it.blocks[0] && paramHint(b.items, i, it.blocks[0].items);
+        if (hint) {
+          const g = mk('span', 'args-hint');
+          g.textContent = hint;
+          z.before(g);
+        }
       }
       e._p = [b, i];
       s.append(e);

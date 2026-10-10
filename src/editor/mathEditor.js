@@ -1,20 +1,25 @@
 import { rebuild } from '../app/model.js';
 import { S } from '../app/state.js';
 import {
+  mqAt,
   mqBack,
+  mqCaret,
   mqDraw,
   mqFix,
+  mqInsert,
   mqLeft,
   mqNew,
   mqPrune,
   mqRight,
   mqSer,
   mqType,
+  mqVert,
   parseText,
 } from './structure.js';
 import {
   acceptCompletion,
   closeCompletions,
+  enterAccepts,
   selectCompletion,
   updateCompletions,
 } from '../ui/completions.js';
@@ -30,9 +35,22 @@ export function makeEditor(r) {
   const load = () => {
       st = mqNew(r.inp.value);
     },
-    draw = () => mqDraw(st, el),
-    reload = () => {
+    draw = () => {
+      mqDraw(st, el);
+      el.classList.toggle('all', !!st.all);
+    },
+    // Replaces everything with an empty expression; on a row that is already empty, removes the row.
+    wipe = () => {
+      if (!r.inp.value) {
+        if (S.rows.length > 1) del(S.rows.indexOf(r));
+        return;
+      }
+      st = mqNew('');
+      commit();
+    },
+    reload = pos => {
       load();
+      if (pos !== undefined) mqAt(st, pos);
       draw();
     };
   // Moving the cursor can leave an empty slot behind; tidy it away and save the text if it changed.
@@ -42,14 +60,15 @@ export function makeEditor(r) {
     else draw();
   };
   const commit = () => {
-    const t = mqSer(st.root);
+    const t = mqSer(st.root),
+      at = mqCaret(st);
     r.inp.value = t;
-    r.inp.setSelectionRange(t.length, t.length);
+    r.inp.setSelectionRange(at, at);
     r.text = t;
     decorate(r);
     rebuild();
     draw();
-    st.cur.blk === st.root && st.cur.i === st.root.items.length ? updateCompletions(r) : closeCompletions();
+    updateCompletions(r);
   };
   el.onfocus = () => {
     if (!st || mqSer(st.root) !== r.inp.value) load();
@@ -57,9 +76,12 @@ export function makeEditor(r) {
   };
   el.onblur = () => {
     if (st) {
+      st.all = false;
+      el.classList.remove('all');
       mqPrune(st, false);
       const t = mqSer(st.root);
-      if (t !== r.inp.value) {
+      // Leaving a half-finished expression ends the guess at what it meant; it now shows its error.
+      if (t !== r.inp.value || r.assumed) {
         r.inp.value = r.text = t;
         decorate(r);
         rebuild();
@@ -72,6 +94,7 @@ export function makeEditor(r) {
   el.onmousedown = e => {
     e.preventDefault();
     if (document.activeElement !== el) el.focus();
+    st.all = false;
     let t = e.target,
       p = null;
     while (t && t !== el) {
@@ -109,8 +132,42 @@ export function makeEditor(r) {
       } else add(r.text, i);
       return;
     }
+    if ((e.ctrlKey || e.metaKey) && !e.altKey && !e.shiftKey) {
+      const c = e.key.toLowerCase();
+      if (c === 'a') {
+        e.preventDefault();
+        closeCompletions();
+        st.all = !!r.inp.value;
+        draw();
+      } else if (c === 'backspace') {
+        e.preventDefault();
+        closeCompletions();
+        wipe();
+      } else if (st.all && (c === 'c' || c === 'x')) {
+        e.preventDefault();
+        navigator.clipboard?.writeText(r.inp.value).catch(() => {});
+        if (c === 'x') wipe();
+      }
+      return;
+    }
     if (e.ctrlKey || e.metaKey || e.altKey) return;
     const k = e.key;
+    // With everything selected, typing replaces it, deleting clears it, and arrows drop the cursor at an end.
+    if (st.all) {
+      st.all = false;
+      if (k === 'Backspace' || k === 'Delete') {
+        e.preventDefault();
+        wipe();
+        return;
+      }
+      if (k.length === 1) st = mqNew('');
+      else if (k === 'ArrowLeft' || k === 'ArrowRight') {
+        e.preventDefault();
+        st.cur = { blk: st.root, i: k === 'ArrowLeft' ? 0 : st.root.items.length };
+        draw();
+        return;
+      } else draw();
+    }
     if (S.completion?.r === r) {
       if (k === 'ArrowDown' || k === 'ArrowUp') {
         e.preventDefault();
@@ -118,7 +175,7 @@ export function makeEditor(r) {
         selectCompletion(S.completion.index + (k === 'ArrowDown' ? 1 : -1));
         return;
       }
-      if (k === 'Tab' || (k === 'Enter' && S.completion.navigated)) {
+      if (k === 'Tab' || (k === 'Enter' && enterAccepts())) {
         e.preventDefault();
         acceptCompletion();
         return;
@@ -168,23 +225,14 @@ export function makeEditor(r) {
     }
     if (k === 'ArrowUp' || k === 'ArrowDown') {
       e.preventDefault();
-      let n = st.cur.blk.node,
-        b = st.cur.blk;
-      while (n && n.t !== 'frac') {
-        b = n.blk;
-        n = b.node;
+      if (mqVert(st, k === 'ArrowUp')) {
+        settle();
+        return;
       }
-      if (n) {
-        const q = n.blocks.indexOf(b),
-          t = k === 'ArrowUp' ? 0 : 1;
-        if (q !== t) {
-          st.cur = {
-            blk: n.blocks[t],
-            i: n.blocks[t].items.length,
-          };
-          settle();
-        }
-      }
+      // Out of the top or bottom of the expression: on to the neighbouring one, keeping the cursor's x.
+      const rows = S.rows.slice(0, S.rows.indexOf(r)).reverse(),
+        next = (k === 'ArrowUp' ? rows : S.rows.slice(S.rows.indexOf(r) + 1)).find(q => q.ed);
+      if (next) next.ed.focusAt(el.querySelector('.cur')?.getBoundingClientRect().left);
       return;
     }
     if (k.length === 1) {
@@ -196,15 +244,49 @@ export function makeEditor(r) {
   };
   el.onpaste = e => {
     e.preventDefault();
-    const items = parseText((e.clipboardData.getData('text') || '').replace(/\s+/g, ''));
+    const items = parseText(
+      (e.clipboardData.getData('text') || '')
+        .split(/\b(with|for|and|or)\b/)
+        .map((s, i) => (i % 2 ? ' ' + s + ' ' : s.replace(/\s+/g, '')))
+        .join(''),
+    );
+    if (st.all) st = mqNew('');
     st.cur.blk.items.splice(st.cur.i, 0, ...items);
     mqFix(st.root);
     st.cur.i += items.length;
     commit();
   };
+  // Focuses with the cursor at the top-level gap nearest to screen position x (the end when x is unknown).
+  const focusAt = x => {
+    el.focus();
+    st.cur = { blk: st.root, i: st.root.items.length };
+    if (x !== undefined) {
+      let best = Infinity;
+      for (const e of el.firstChild?.children || []) {
+        if (!e._p || e._p[0] !== st.root) continue;
+        const b = e.getBoundingClientRect();
+        [
+          [b.left, e._p[1]],
+          [b.right, e._p[1] + 1],
+        ].forEach(([edge, i]) => {
+          if (Math.abs(edge - x) < best) [best, st.cur.i] = [Math.abs(edge - x), i];
+        });
+      }
+    }
+    draw();
+  };
+  const insert = (name, drop) => {
+    if (!st) load();
+    el.focus();
+    mqInsert(st, name, drop);
+    mqPrune(st);
+    commit();
+  };
   return {
     el,
     reload,
+    insert,
     focus: () => el.focus(),
+    focusAt,
   };
 }

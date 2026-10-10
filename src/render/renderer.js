@@ -1,11 +1,15 @@
 import { geo, morphStep, surfaceMesh } from '../app/geometry.js';
+import { liveTrace } from '../app/interaction.js';
 import { parameter, setVar } from '../app/model.js';
 import { S, reduceMotion } from '../app/state.js';
 import { $, ctx } from '../core/dom.js';
 import { revealGeometry } from '../math/contours.js';
+import { complexText } from '../math/complex.js';
 import { fmt, nice, rgba } from '../math/format.js';
 import { camera, cameraStep } from './camera.js';
+import { timing } from '../ui/fps.js';
 import { drawKeyPoints } from '../ui/keyPoints.js';
+import { panelSpan } from '../ui/sidePanel.js';
 
 /* Rendering retains the original ember trails and additive glow. */
 function grid() {
@@ -53,13 +57,30 @@ function grid() {
   }
   ctx.textAlign = 'right';
   ctx.textBaseline = 'middle';
+  // With a complex number on show the plane is the Argand plane: the vertical axis counts in i.
+  const argand = S.rows.some(r => !r.off && !r.err && r.k?.complex),
+    tick = v => (!argand ? fmt(v) : fmt(v) === '1' ? 'i' : fmt(v) === '-1' ? '-i' : fmt(v) + 'i');
   for (let i = Math.ceil(y0 / st); i <= Math.floor(y1 / st); i++) {
     const y = S.V.cy - i * st * S.V.s;
     ctx.moveTo(S.V.cx - 4, y);
     ctx.lineTo(S.V.cx + 4, y);
-    if (i) ctx.fillText(fmt(i * st), Math.min(Math.max(S.V.cx - 13, 35), S.W - 15), y);
+    if (i) ctx.fillText(tick(i * st), Math.min(Math.max(S.V.cx - 13, 35), S.W - 15), y);
   }
   ctx.stroke();
+  if (argand) {
+    ctx.font = 'italic 12px Georgia, serif';
+    ctx.fillStyle = 'rgba(232,214,190,.62)';
+    ctx.textBaseline = 'bottom';
+    // Clear of the tool column when the real axis runs behind it.
+    const c = ctx.canvas.getBoundingClientRect(),
+      t = $('#tools')?.getBoundingClientRect(),
+      behind = t && S.V.cy + c.top > t.top - 12 && S.V.cy + c.top < t.bottom + 12,
+      rx = behind ? t.left - c.left - 14 : S.W - 24;
+    if (S.V.cy > 70 && S.V.cy < S.H - 20) ctx.fillText('Re', rx, S.V.cy - 7);
+    ctx.textAlign = 'left';
+    ctx.textBaseline = 'top';
+    if (S.V.cx > 0 && S.V.cx < S.W - 30) ctx.fillText('Im', S.V.cx + 9, 58);
+  }
   ctx.strokeStyle = '#cdbba6';
   ctx.beginPath();
   ctx.arc(S.V.cx, S.V.cy, 3, 0, Math.PI * 2);
@@ -174,6 +195,20 @@ function atmosphere() {
   ctx.fillStyle = g;
   ctx.fillRect(0, 0, S.W, S.H);
 }
+// The construction behind a complex sum or product: faint and dashed, so the answer's arrow stays in front.
+function drawGuides(paths, col, alpha) {
+  ctx.save();
+  ctx.setLineDash([4, 5]);
+  ctx.strokeStyle = rgba(col, 0.42 * alpha);
+  ctx.lineWidth = 1;
+  ctx.beginPath();
+  for (const L of paths) {
+    ctx.moveTo(L[0], L[1]);
+    for (let i = 2; i < L.length; i += 2) ctx.lineTo(L[i], L[i + 1]);
+  }
+  ctx.stroke();
+  ctx.restore();
+}
 function glow(path, col, width = 1.15) {
   ctx.globalCompositeOperation = 'lighter';
   ctx.strokeStyle = rgba(col, 0.035);
@@ -182,14 +217,15 @@ function glow(path, col, width = 1.15) {
   ctx.strokeStyle = rgba(col, 0.07);
   ctx.lineWidth = width + 4;
   ctx.stroke(path);
+  // A tight halo in strokes rather than shadowBlur, which costs the whole area a path spans on every frame:
+  // tan(x) spans the screen, and blurring it alone took longer than a frame.
+  const hot = col === '#ff783b';
+  ctx.strokeStyle = rgba(col, hot ? 0.13 : 0.12);
+  ctx.lineWidth = width + (hot ? 2.6 : 1.8);
+  ctx.stroke(path);
   ctx.strokeStyle = rgba(col, 0.87);
   ctx.lineWidth = width;
-  if (!S.fast) {
-    ctx.shadowColor = col;
-    ctx.shadowBlur = col === '#ff783b' ? 7 : 2;
-  }
   ctx.stroke(path);
-  ctx.shadowBlur = 0;
   ctx.globalCompositeOperation = 'source-over';
 }
 export function draw(dt) {
@@ -278,6 +314,108 @@ function burst(p, col) {
     });
   }
 }
+/* A curve whose expression breaks flares and burns away: its glow fades within a second while embers
+   lift off along its whole length and drift down like the tracing pen's. */
+const ashes = [],
+  ASH = 0.6;
+// The part of a curve the pen has drawn so far: the first `f` of its length.
+function drawnPart(g, f) {
+  if (f >= 1 || !g.lengths) return g.L;
+  let left = f * g.distance;
+  const out = [];
+  for (let j = 0; j < g.L.length && left > 0; j++) {
+    const a = g.L[j],
+      d = g.lengths[j];
+    if (d.at(-1) <= left) {
+      out.push(a);
+      left -= d.at(-1);
+      continue;
+    }
+    let i = 1;
+    while (d[i] <= left) i++;
+    const t = (left - d[i - 1]) / (d[i] - d[i - 1] || 1),
+      part = Array.from(a.subarray ? a.subarray(0, i * 2) : a.slice(0, i * 2));
+    part.push(a[i * 2 - 2] + (a[i * 2] - a[i * 2 - 2]) * t, a[i * 2 - 1] + (a[i * 2 + 1] - a[i * 2 - 1]) * t);
+    out.push(part);
+    break;
+  }
+  return out;
+}
+// `shown` is how much of the curve was on screen: a curve still being traced only burns what it has drawn.
+export function shatter(g, col, shown = 1) {
+  if (reduceMotion || S.mode3 || !g || !(shown > 0)) return;
+  const path = new Path2D(),
+    seeds = [],
+    L = drawnPart(g, shown);
+  let length = 0;
+  for (const a of L) {
+    if (a.length < 4) continue;
+    path.moveTo(a[0], a[1]);
+    for (let i = 2; i < a.length; i += 2) {
+      path.lineTo(a[i], a[i + 1]);
+      length += Math.hypot(a[i] - a[i - 2], a[i + 1] - a[i - 1]);
+    }
+  }
+  const gap = Math.max(5, length / 650);
+  for (const a of L) {
+    let carry = Math.random() * gap;
+    for (let i = 2; i < a.length; i += 2) {
+      const x0 = a[i - 2],
+        y0 = a[i - 1],
+        d = Math.hypot(a[i] - x0, a[i + 1] - y0);
+      for (; carry < d; carry += gap) {
+        const x = x0 + ((a[i] - x0) * carry) / d,
+          y = y0 + ((a[i + 1] - y0) * carry) / d;
+        if (onScreen([x, y])) seeds.push([x, y]);
+      }
+      carry -= d;
+    }
+  }
+  if (shown >= 1) for (const { p } of g.pts) for (let i = 0; i < 12; i++) seeds.push(p);
+  if (!seeds.length) return;
+  ashes.push({ path, col, t: 0, view: { ...S.V } });
+  for (const [x, y] of seeds.slice(0, 900)) {
+    const hot = Math.random() < 0.25,
+      a = Math.random() * Math.PI * 2,
+      s = (hot ? 40 : 15) + Math.random() * (hot ? 90 : 45);
+    S.sparks.push({
+      x,
+      y,
+      vx: Math.cos(a) * s,
+      vy: Math.sin(a) * s - 40 - Math.random() * 50,
+      life: 0,
+      max: 0.7 + Math.random() * (hot ? 1.1 : 0.8),
+      col: hot ? '#ffe6bd' : col,
+      w: hot ? 1.1 : 0.75,
+    });
+  }
+  kick();
+}
+function drawAshes(dt) {
+  for (let i = ashes.length - 1; i >= 0; i--) {
+    const a = ashes[i];
+    a.t += dt;
+    if (a.t >= ASH) {
+      ashes.splice(i, 1);
+      continue;
+    }
+    const f = S.V.s / a.view.s,
+      left = 1 - a.t / ASH;
+    ctx.save();
+    ctx.translate(S.V.cx - a.view.cx * f, S.V.cy - a.view.cy * f);
+    ctx.scale(f, f);
+    ctx.globalAlpha = left * left;
+    glow(a.path, a.col, 1.15 / f);
+    // The first instant runs white-hot, as if the curve caught fire.
+    ctx.globalCompositeOperation = 'lighter';
+    ctx.globalAlpha = Math.max(0, 1 - a.t / 0.18) * 0.7;
+    ctx.strokeStyle = '#ffe6bd';
+    ctx.lineWidth = 1.8 / f;
+    ctx.stroke(a.path);
+    ctx.restore();
+  }
+  return ashes.length > 0;
+}
 /* The pen reaches the end. Its glow stays where it stopped and dies out instead of vanishing. When the end
    meets the start, the join throws one big spark: a flash and a ring of embers that fall like the trail's. */
 function sealCurve(r, head, closed) {
@@ -364,9 +502,27 @@ function drawScene(dt) {
       r.seal = null;
     }
     const shown = tracing ? revealFraction(r, g) : 1;
-    if (g.fill) {
+    r.shown = shown;
+    if (g.fill && r.k.type === 'shape') {
+      // A shape's fill moves with its springing outline rather than jumping to where it will end up.
+      let F = g.fill;
+      if (r.m) {
+        F = new Path2D();
+        for (const L of g.L) {
+          F.moveTo(L[0], L[1]);
+          for (let i = 2; i < L.length; i += 2) F.lineTo(L[i], L[i + 1]);
+          F.closePath();
+        }
+      }
+      ctx.fillStyle = rgba(r.col, 0.16 * r.prog);
+      ctx.fill(F);
+    } else if (g.fill) {
       ctx.fillStyle = rgba(r.col, 0.055 * r.prog * (r.m ? 0.35 : 1));
       ctx.fill(g.fill);
+    }
+    if (g.band) {
+      ctx.fillStyle = rgba(r.col, 0.8 * r.prog);
+      ctx.fill(g.band);
     }
     let { P, trail, head, prev } = revealGeometry(g, shown);
     if (tracing && r.reveal && head) {
@@ -379,8 +535,12 @@ function drawScene(dt) {
     }
     if (r.prog < 1 && head && (!camera.trace || r.col === '#ff783b')) camera.trace = head;
     if (r.box?.on && r.box.cells) drawBoxes(r.box, r.col);
+    if (g.guides?.length) drawGuides(g.guides, r.col, r.prog);
     if (r.k.strict) ctx.setLineDash([2, 4]);
+    // A slope field sits behind the curves it describes.
+    if (r.k.type === 'field') ctx.globalAlpha = 0.45;
     glow(P, r.col);
+    ctx.globalAlpha = 1;
     ctx.setLineDash([]);
     if (r.seal) {
       drawSeal(r, dt);
@@ -420,6 +580,7 @@ function drawScene(dt) {
       }
     }
   }
+  if (drawAshes(dt)) busy = true;
   if (lastView && (lastView.cx !== S.V.cx || lastView.cy !== S.V.cy || lastView.s !== S.V.s)) {
     const f = S.V.s / lastView.s;
     for (const s of S.sparks) {
@@ -454,6 +615,7 @@ function drawScene(dt) {
   ctx.globalCompositeOperation = 'source-over';
   drawMarks();
   drawKeyPoints();
+  drawTrace();
   return busy;
 }
 export function halo(p, col, r, alpha) {
@@ -509,7 +671,7 @@ function draw3(dt) {
     sa = Math.sin(S.C.y),
     cp = Math.cos(S.C.p),
     sp = Math.sin(S.C.p),
-    center = S.W <= 720 || S.presentation ? S.W / 2 : (S.W + 260) / 2,
+    center = (S.W + panelSpan()) / 2,
     project = (x, y, z) => {
       const X = x * ca - y * sa,
         Y = x * sa + y * ca;
@@ -656,13 +818,17 @@ function tick(t) {
       setVar(n, v);
     }
     if (S.dirty) {
+      const start = performance.now();
       if (!S.mode3) S.rows.forEach(geo);
       S.dirty = false;
+      timing('curves', performance.now() - start);
     }
     if (S.drifting && S.mode3 && !reduceMotion) S.C.y += dt * 0.085;
     const cameraBusy = cameraStep(dt),
       morphBusy = morphStep(dt);
-    const busy = draw(dt);
+    const start = performance.now(),
+      busy = draw(dt);
+    timing('draw', performance.now() - start);
     const scale = S.mode3 ? '−6 ≤ x,y ≤ 6' : '1 unit : ' + fmt(S.V.s) + ' px';
     if (scale !== scaleText) {
       scaleText = scale;
@@ -728,6 +894,37 @@ function drawMarks() {
     ctx.fillStyle = '#fff1d6';
     ctx.fillText(label, lx, ly);
   }
+}
+// The point being traced, drawn over key points so its label is never hidden under theirs.
+function drawTrace() {
+  const t = liveTrace();
+  if (!t) return;
+  const x = S.V.cx + t.x * S.V.s,
+    y = S.V.cy - t.y * S.V.s,
+    label =
+      (t.key ? t.key + ' ' : '') +
+      (t.r.k?.complex ? complexText(t.x, t.y, fmt) : `(${fmt(t.x)}, ${fmt(t.y)})`);
+  halo([x, y], t.r.col, 16, 1);
+  ctx.fillStyle = t.r.col;
+  ctx.beginPath();
+  ctx.arc(x, y, 5, 0, Math.PI * 2);
+  ctx.fill();
+  ctx.lineWidth = 2;
+  ctx.strokeStyle = '#fff';
+  ctx.stroke();
+  ctx.font = '12px monospace';
+  ctx.textAlign = 'left';
+  ctx.textBaseline = 'middle';
+  const w = ctx.measureText(label).width,
+    lx = Math.max(4, Math.min(x + 12, S.W - w - 14)),
+    ly = y - 22 < 14 ? y + 22 : y - 22;
+  ctx.fillStyle = '#070707ee';
+  ctx.fillRect(lx - 6, ly - 12, w + 12, 24);
+  ctx.strokeStyle = rgba(t.r.col, 0.55);
+  ctx.lineWidth = 1;
+  ctx.strokeRect(lx - 6, ly - 12, w + 12, 24);
+  ctx.fillStyle = '#fff1d6';
+  ctx.fillText(label, lx, ly);
 }
 
 /* UI and state. All imported state is validated before mutation. */

@@ -2,8 +2,12 @@ import { rebuild } from '../app/model.js';
 import { frameFractal } from '../app/scenes.js';
 import { S } from '../app/state.js';
 import { $ } from '../core/dom.js';
-import { constants, math } from '../math/catalog.js';
+import { constants, math, own } from '../math/catalog.js';
 import { FRACTALS, fractalText } from '../math/fractals.js';
+import { LONG_FORMS, NAMES, nameMatch } from '../math/names.js';
+import { productName } from '../math/parser.js';
+import { FN_HELP } from './keyHelp.js';
+import { NEW, del, replaceRow } from './panel.js';
 
 const REG = [
   ['Linear', 'y ~ m*x+b'],
@@ -15,6 +19,44 @@ const REG = [
   ['Logistic', 'y ~ L/(1+exp(-k*(x-x0)))'],
   ['Sinusoidal', 'y ~ a*sin(b*x+c)+d'],
 ];
+export const STATS = {
+  length: 'number of elements',
+  count: 'number of elements',
+  total: 'sum of a list',
+  mean: 'average',
+  average: 'mean',
+  median: 'middle value',
+  mode: 'most common value',
+  var: 'sample variance',
+  variance: 'sample variance, var',
+  varp: 'population variance',
+  populationvariance: 'varp',
+  stdev: 'sample standard deviation',
+  stddev: 'sample standard deviation',
+  standarddeviation: 'sample, stdev',
+  stdevp: 'population standard deviation',
+  stddevp: 'population standard deviation',
+  populationstandarddeviation: 'stdevp',
+  mad: 'mean absolute deviation',
+  meanabsolutedeviation: 'mad',
+  quantile: 'quantile(L, p), p from 0 to 1',
+  quartile: 'quartile(L, q), q from 0 to 4',
+  stats: '[min, Q1, median, Q3, max]',
+  cov: 'sample covariance of two lists',
+  covariance: 'cov',
+  covp: 'population covariance',
+  populationcovariance: 'covp',
+  corr: 'correlation of two lists',
+  correlation: 'corr',
+  spearman: 'rank correlation of two lists',
+  min: 'smallest value',
+  minimum: 'min',
+  max: 'largest value',
+  maximum: 'max',
+  sort: 'smallest to largest',
+  unique: 'repeats removed',
+  join: 'lists joined end to end',
+};
 /* Context-aware expression completions: local math catalog, no network requests. */
 const completionBox = document.createElement('div');
 export function closeCompletions() {
@@ -91,15 +133,10 @@ function completionItems(r) {
   }
   if (token.length < 2) return [];
   const catalog = [
-    ...Object.keys(math).map(name => ({
-      label: name,
-      detail: 'Math function',
-      value: name + '()',
-      caret: 1,
-    })),
+    ...functionItems(token),
     ...Object.keys(constants).map(name => ({
       label: name,
-      detail: 'Constant',
+      detail: name === 'i' ? 'Imaginary unit' : 'Constant',
       value:
         {
           pi: 'π',
@@ -112,56 +149,164 @@ function completionItems(r) {
       value: 'fractal(',
       browse: true,
     },
-    {
-      label: 'deriv',
-      detail: 'Numerical derivative · deriv(f, x)',
-      value: 'deriv(f, x)',
-    },
-    {
-      label: 'integral',
-      detail: 'Definite integral · integral(f, 0, x)',
-      value: 'integral(f, 0, x)',
-    },
     ...[...S.env.fn.keys()].map(name => ({
       label: name,
       detail: 'Your function',
       value: name + '()',
       caret: 1,
     })),
-    ...[...S.env.def.keys(), ...Object.keys(S.vars)].map(name => ({
+    ...[...S.env.def].map(([name, d]) => ({
       label: name,
-      detail: 'Your parameter',
+      detail: ['list', 'range'].includes(d.ast.k) ? 'Your list' : 'Your variable',
       value: name,
+      mine: d.row,
+    })),
+    ...Object.keys(S.vars).map(name => ({
+      label: name,
+      detail: 'Slider',
+      value: name,
+      mine: S.rows.find(q => q.id === S.VM[name]?.own),
     })),
   ];
-  return catalog
+  const found = catalog
     .filter(
       (x, i, a) =>
-        x.label.toLowerCase().startsWith(token.toLowerCase()) &&
+        (x.rank !== undefined || x.label.toLowerCase().startsWith(token.toLowerCase())) &&
         a.findIndex(y => y.label === x.label) === i &&
         x.label.toLowerCase() !== token.toLowerCase(),
     )
     .sort((a, b) => {
       const c = ['sin', 'cos', 'tan', 'sqrt', 'abs', 'ln', 'log', 'exp', 'floor', 'round'],
-        f = x => (c.includes(x.label) ? c.indexOf(x.label) : 99);
-      return f(a) - f(b);
+        f = x => (c.includes(x.name) ? c.indexOf(x.name) : 99);
+      return (a.rank ?? 0) - (b.rank ?? 0) || f(a) - f(b);
     })
-    .slice(0, 6)
-    .map(x => {
-      const end = pos + (input.value.slice(pos).match(/^\w*/)?.[0].length || 0);
-      return {
-        ...x,
-        start,
-        end,
-        ...(x.value.endsWith('()') && /^\s*\(/.test(input.value.slice(end))
-          ? {
-              value: x.label,
-              caret: 0,
-            }
-          : {}),
-      };
+    .slice(0, 6);
+  // A row holding just "table", "note", "matrix" … can become that, as the add menu would make it.
+  const actions =
+    whole.toLowerCase() === token.toLowerCase()
+      ? ACTIONS.filter(([, , words]) => words.some(w => w.startsWith(token.toLowerCase()))).map(
+          ([label, detail, , action]) => ({ label, detail, value: '', action }),
+        )
+      : [];
+  found.unshift(...actions);
+  // What was typed comes first: a known function as itself ("tan"), otherwise as a name of its own ("vari")
+  // that the user can keep while the best match stays selected.
+  // A half-typed name gets an automatic slider, so only a definition in another row counts as the user's own.
+  const exact = catalog.find(x => x.label === token && (!x.mine || (S.env.def.get(token)?.row || r) !== r));
+  const end = pos + (input.value.slice(pos).match(/^\w*/)?.[0].length || 0);
+  // xy reads as x·y; the subscripted x_y is offered as the way to make it one name.
+  const product =
+    !exact && productName(token)
+      ? [
+          {
+            label: [...token].join('·'),
+            detail: 'Multiply, how ' + token + ' is read',
+            value: token,
+            keep: true,
+          },
+          {
+            label: token[0] + '_' + token.slice(1),
+            detail: 'One name, written with a subscript',
+            value: token[0] + '_' + token.slice(1),
+          },
+        ]
+      : null;
+  if (product)
+    return [...product, ...found].map(x => ({
+      ...x,
+      start,
+      end: x.keep ? pos : end,
+      word: true,
+      product: true,
+    }));
+  if (!found.length && !exact?.caret) return [];
+  return [exact || { label: token, detail: 'Keep as typed', value: token, keep: true }, ...found].map(x => ({
+    ...x,
+    start,
+    end: x.keep ? pos : end,
+    drop: pos - start,
+    ...(x.value.endsWith('()') && /^\s*\(/.test(input.value.slice(end))
+      ? {
+          value: x.name,
+          caret: 0,
+          node: null,
+        }
+      : {}),
+    word: true,
+  }));
+}
+// What ∫, Σ … are written as where there is no maths editor to lay them out.
+const LAYOUT_TEXT = {
+  int: ['integral(f, x)', 0, '∫'],
+  deriv: ['deriv(f, x)', 0, 'd/dx'],
+  sum: ['sum(n, n, 1, 10)', 0, 'Σ'],
+  prod: ['prod(n, n, 1, 10)', 0, '∏'],
+  sqrt: ['sqrt()', 1, '√'],
+  nthroot: ['nthroot()', 1, 'ⁿ√'],
+  abs: ['abs()', 1, '|x|'],
+  log: ['log()', 1, 'log'],
+};
+/* Functions found by their name, long name or another name. A long name shows as typed, "standard deviation",
+   while the row gets the short name, stdev, or the layout itself: ∫ for integral, √ for square root. */
+function functionItems(token) {
+  return [...new Set([...Object.keys(NAMES), ...Object.keys(math)])]
+    .filter(n => !LONG_FORMS.has(n))
+    .flatMap(name => {
+      const m = nameMatch(name, token);
+      if (!m) return [];
+      const [long = name, kind = own(STATS, name) ? 'Statistics' : 'Math function', , layout] =
+          NAMES[name] || [],
+        [text, caret, shown] = LAYOUT_TEXT[layout] || [name + '()', 1, name];
+      return [
+        {
+          label: m.label,
+          detail:
+            kind +
+            ' · ' +
+            (layout || m.label !== name
+              ? 'writes ' + shown
+              : long !== name
+                ? long
+                : FN_HELP[name]?.[1].split(/[.:]/)[0] || kind),
+          value: text,
+          caret,
+          node: layout || null,
+          name,
+          rank: m.rank,
+        },
+      ];
     });
 }
+const click = id => () => $(id).click(),
+  // Actions that turn the row itself into something, rather than act elsewhere.
+  into = kind => Object.assign(r => replaceRow(r, NEW[kind]()), { keepsRow: true }),
+  ACTIONS = [
+    ['Table', 'Turn this row into a table', ['table', 'tables'], into('table')],
+    [
+      'Data + fit',
+      'A table of data with a line of best fit',
+      ['data', 'datafit', 'fit', 'scatter', 'bestfit'],
+      into('data'),
+    ],
+    ['Note', 'A line of text between expressions', ['note', 'text', 'comment'], into('note')],
+    [
+      'Matrix calculator',
+      'Determinants, inverses and row reduction',
+      ['matrix', 'matrices'],
+      click('#mx-open'),
+    ],
+    ['Import .ggb', 'Open a GeoGebra file', ['import', 'geogebra', 'ggb'], click('#import-ggb')],
+    ['Read aloud', 'Describe the graph out loud', ['readaloud', 'read', 'speak'], click('#read')],
+    [
+      'Audio trace',
+      'Hear the curves, left to right',
+      ['audiotrace', 'audio', 'sonify', 'listen'],
+      click('#trace'),
+    ],
+    ['High contrast', 'Switch high-contrast colours on or off', ['highcontrast', 'contrast'], click('#hc')],
+  ];
+// Name suggestions take Enter straight away; whole-row templates only after the user has picked one.
+export const enterAccepts = () => !!S.completion && (S.completion.navigated || S.completion.items[0].word);
 function placeCompletions() {
   if (!S.completion) return;
   const b = (S.completion.r.ed?.el || S.completion.r.inp).getBoundingClientRect(),
@@ -190,14 +335,30 @@ export function acceptCompletion() {
   const { r, items, index } = S.completion,
     item = items[index],
     input = r.inp;
+  if (item.action) {
+    closeCompletions();
+    input.value = r.text = '';
+    r.ed?.reload(0);
+    // The row was only there for the word; an empty row already waits at the end.
+    const i = S.rows.indexOf(r);
+    if (i < S.rows.length - 1 && !S.rows.at(-1).text.trim() && !item.action.keepsRow) del(i);
+    else rebuild();
+    item.action(r);
+    return;
+  }
+  if (item.node && r.ed) {
+    closeCompletions();
+    r.ed.insert(item.node, item.drop);
+    return;
+  }
   input.value = input.value.slice(0, item.start) + item.value + input.value.slice(item.end);
   r.text = input.value;
-  if (r.ed) r.ed.reload();
+  const pos = item.start + item.value.length - (item.caret || 0);
+  if (r.ed) r.ed.reload(pos);
   if (item.fractal) r.col = '#ff783b';
   closeCompletions();
   rebuild();
   input.focus();
-  const pos = item.start + item.value.length - (item.caret || 0);
   if (item.fractal) {
     const start = item.selection,
       end = input.value.indexOf(',', start);
@@ -218,13 +379,13 @@ export function updateCompletions(r) {
   completionBox.replaceChildren();
   const header = document.createElement('div');
   header.className = 'completion-head';
-  header.textContent = 'TAB TO INSERT · ↑ ↓ TO CHOOSE';
+  header.textContent = items[0].word ? 'ENTER TO INSERT · ↑ ↓ TO CHOOSE' : 'TAB TO INSERT · ↑ ↓ TO CHOOSE';
   completionBox.append(header);
   items.forEach((item, i) => {
     const button = document.createElement('div');
     button.id = 'completion-option-' + i;
     button.setAttribute('role', 'option');
-    button.className = 'completion-option';
+    button.className = 'completion-option' + (item.keep ? ' keep' : '');
     const title = document.createElement('strong'),
       detail = document.createElement('span'),
       arrow = document.createElement('b');
@@ -242,7 +403,7 @@ export function updateCompletions(r) {
   completionBox.hidden = false;
   r.inp.setAttribute('aria-expanded', 'true');
   placeCompletions();
-  selectCompletion(0);
+  selectCompletion(items[0].keep && !items[0].product ? 1 : 0);
 }
 export function bindCompletions(r) {
   const input = r.inp;
@@ -269,7 +430,7 @@ export function bindCompletions(r) {
         selectCompletion(S.completion.index + (e.key === 'ArrowDown' ? 1 : -1));
         return;
       }
-      if (e.key === 'Tab' || (e.key === 'Enter' && S.completion.navigated)) {
+      if (e.key === 'Tab' || (e.key === 'Enter' && enterAccepts())) {
         e.preventDefault();
         acceptCompletion();
         return;

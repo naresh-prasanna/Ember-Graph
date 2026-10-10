@@ -84,6 +84,9 @@ export function findKeyPoints(curves, x0, x1, N = 1400) {
         if (!fin(x)) continue;
         const y = sf(x);
         if (!fin(y) || !(Math.abs(g(x)) * dx < 1e-3 * (1 + Math.abs(y)))) continue;
+        // A real turning point flattens out; the tip of −ln|cos x| still drops sharply just beside it.
+        const drop = e => Math.max(Math.abs(y - sf(x - e)), Math.abs(y - sf(x + e)));
+        if (!(drop(h) <= 0.3 * drop(dx / 2))) continue;
         add(x, y, d0 > 0 ? 'maximum' : 'minimum', c.c, c.id);
         if (Math.abs(y) < 1e-9 * (1 + sc)) add(x, 0, 'root', c.c, c.id);
       }

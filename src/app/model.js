@@ -1,16 +1,29 @@
 import { saveSoon } from './persistence.js';
 import { updateStatus } from './scenes.js';
 import { PAL, S, reduceMotion } from './state.js';
-import { coords, nullObj, own, reserved } from '../math/catalog.js';
+import { constants, coords, emptyCalls, nullObj, own, reserved } from '../math/catalog.js';
+import { complexOp, complexText, imOf, isComplex, reOf } from '../math/complex.js';
+import { DIST_NAMES, Dist } from '../math/distributions.js';
+import { Color, Matrix, Point, Shape, TTest, Tone, show } from '../math/values.js';
 import { ddValue } from '../math/doubleDouble.js';
 import { calcFmt, clamp, fmt } from '../math/format.js';
 import { FRACTALS, parseFractal } from '../math/fractals.js';
-import { compileExpr, definition, evaluate, parts, splitTop } from '../math/parser.js';
+import {
+  compileExpr,
+  definition,
+  evaluate,
+  listLength,
+  parts,
+  splitTop,
+  undefinedReason,
+} from '../math/parser.js';
 import { lm, solve, sse } from '../math/regression.js';
+import { calculus, hasIndefinite, integralEquation, solveODE } from '../math/symbolic.js';
 import { columnName, fitData, isTableText, readTable } from '../math/table.js';
 import { evalGeo, freeNames, geoName, geoShapes, isGeoText, parseGeo, readGeo } from '../io/geogebraEval.js';
 import { cameraKick } from '../render/camera.js';
-import { kick } from '../render/renderer.js';
+import { kick, shatter } from '../render/renderer.js';
+import { timing } from '../ui/fps.js';
 import { scheduleHistory } from '../ui/history.js';
 import {
   decorate,
@@ -19,13 +32,17 @@ import {
   regCard,
   showError,
   sliders,
+  stepsCard,
   syncBlank,
   syncSliders,
   tableUI,
+  valueCard,
 } from '../ui/panel.js';
+import { syncTones } from './sound.js';
 
 // Names given a value by some row or table column, which compileExpr never splits into products.
-let defined = new Set();
+let defined = new Set(),
+  tableColumns = new Set();
 
 export function makeRow(text = '', options = {}) {
   return {
@@ -34,12 +51,71 @@ export function makeRow(text = '', options = {}) {
     col: options.col || PAL[(S.uid - 1) % PAL.length],
     off: !!options.off,
     helper: !!options.helper,
+    colVar: options.colVar || null,
     prog: reduceMotion ? 1 : 0,
     uses: new Set(),
   };
 }
 export function val(compiled, scope = {}) {
   return evaluate(compiled.ast, scope, S.env);
+}
+// A row's value rather than a graph: √(−4) is 2i here, where a curve would just stop.
+function valueOf(compiled) {
+  S.env.complex = true;
+  try {
+    return val(compiled);
+  } finally {
+    S.env.complex = false;
+  }
+}
+// Implicit curves are sampled over the whole screen, so far fewer copies of them can be drawn.
+export const maxCopies = type => (type === 'pt' ? 10000 : type === 'imp' || type === 'ineq' ? 20 : 200);
+const listFmt = v =>
+  '[' +
+  v
+    .slice(0, 12)
+    .map(x => (typeof x === 'number' ? calcFmt(x) : String(x)))
+    .join(', ') +
+  (v.length > 12 ? `, … ${v.length - 12} more` : '') +
+  ']';
+const CAPPED = 'Drawing the first ';
+// The copies a row draws, one per list element; undefined when it uses no list.
+// Asked on every redraw, since a slider can change how long a list is.
+export function rowCopies(r) {
+  const k = r.k;
+  if (!k || k.reg || !['cart', 'function', 'cartY', 'par', 'polar', 'pt', 'imp', 'ineq'].includes(k.type))
+    return;
+  const sizes = [k.c, k.fx, k.fy, k.boundary, k.filter]
+    .filter(Boolean)
+    .map(c => listLength(c.ast, S.env))
+    .filter(n => n !== null);
+  const n = sizes.length ? Math.min(...sizes) : undefined,
+    cap = maxCopies(k.type);
+  if (n > cap) r.info = `${CAPPED}${cap.toLocaleString()} of ${n.toLocaleString()}`;
+  else if (r.info?.startsWith(CAPPED)) r.info = '';
+  return n;
+}
+// A definition whose value is a list shows that list under the row.
+function listInfo(r) {
+  if (r.err || r.k?.type !== 'const' || S.VM[r.k.name]) return;
+  try {
+    const v = val({ ast: { k: 'name', n: r.k.name } });
+    r.value = carded(v) ? v : null;
+    if (Array.isArray(v)) r.info = '= ' + listFmt(v);
+    else if (typeof v === 'object' && v) r.info = valueInfo(v);
+  } catch (e) {
+    r.err = e.message;
+  }
+}
+// [(1,2),(3,4)] draws points; [1,2,3] and [1...10] are lists of numbers.
+function isPointList(t) {
+  if (!t.endsWith(']')) return false;
+  try {
+    const inner = t.slice(1, -1).trim();
+    return !inner || splitTop(inner).every(p => pointParts(p));
+  } catch {
+    return false;
+  }
 }
 function pointParts(s) {
   s = s.trim();
@@ -206,12 +282,14 @@ export function tableFit(r) {
 export function parseRow(r, names) {
   if (isTableText(r.text)) return parseTable(r, names);
   if (isGeoText(r.text)) return parseGeoRow(r);
-  let { body: t, filter } = parts(r.text);
+  let { body: t, filter } = parts(r.heldText ?? r.text);
   const d = definition(t);
   if (!t || t.startsWith('"')) return;
   const cp = s => {
     const c = compile(s, names);
     for (const n of c.deps) r.uses.add(n);
+    if (c.assumed) r.assumed = true;
+    if (c.hint) r.hint = c.hint;
     return c;
   };
   const fractal = parseFractal(t, filter, cp);
@@ -224,6 +302,7 @@ export function parseRow(r, names) {
     filter: filter ? cp(filter) : null,
   };
   if (d) {
+    if (d.name === 'i') throw Error('i is the imaginary unit, √(−1); give this value another name, like k');
     if (reserved(d.name)) throw Error('Cannot redefine ' + d.name);
     if (d.param && reserved(d.param) && !coords.has(d.param)) throw Error('Reserved argument name');
     const point = pointParts(d.rhs);
@@ -234,6 +313,11 @@ export function parseRow(r, names) {
       const v = [d.param, 't'].find(n => n && (k.fx.deps.has(n) || k.fy.deps.has(n)));
       k.type = v ? 'par' : 'pt';
       if (v) k.param = v;
+      // A named point is also a value other rows can use: distance(A, B), A.x.
+      else if (!d.param) {
+        k.name = d.name;
+        k.c = cp(d.rhs);
+      }
       r.k = k;
       return;
     }
@@ -260,8 +344,7 @@ export function parseRow(r, names) {
     r.k = k;
     return;
   }
-  if (t.startsWith('[')) {
-    if (!t.endsWith(']')) throw Error('Close the point list with ]');
+  if (t.startsWith('[') && isPointList(t)) {
     k.type = 'pts';
     const inner = t.slice(1, -1).trim();
     k.points = inner
@@ -288,20 +371,36 @@ export function parseRow(r, names) {
     k.fx = cp(q[0]);
     k.fy = cp(q[1]);
     k.type = k.fx.deps.has('t') || k.fy.deps.has('t') ? 'par' : 'pt';
+  } else if (ODE.test(t)) {
+    // dy/dx = F(x, y): solved by hand once every row is known, as its family of curves with a constant C.
+    const rhs = t.match(ODE)[1];
+    k.type = 'imp';
+    k.ode = cp(rhs);
+    k.c = cp(`y-(${rhs})-C`);
   } else if (t.includes('~')) {
-    const q = t.split('~'),
-      lhs = q.length === 2 && (q[0].trim() === 'y' ? 'y' : columnName(q[0]));
-    if (!lhs) throw Error('Use regression like y ~ m*x+b, or y₁ ~ m*x₁+b with a table');
-    k.type = 'cart';
-    k.reg = true;
-    k.lhs = lhs;
-    k.c = cp(q[1]);
-  } else {
-    const m = t.match(/^(.*?)(<=|>=|<|>|=)(.*)$/);
-    if (!m) {
+    const q = splitTop(t, '~').map(x => x.trim());
+    if (q.length !== 2 || !q[0] || !q[1])
+      throw Error('A regression needs one ~ with a side each way, like y₁ ~ m x₁ + b');
+    const lhs = q[0] === 'y' ? 'y' : columnName(q[0]);
+    // y ~ … fits the points on the graph and a table column fits its table; anything else, like hello ~ 1 or
+    // a list ~ a formula in lists, is solved for its unknowns as it stands.
+    if (lhs === 'y' || tableColumns.has(lhs)) {
       k.type = 'cart';
+      k.reg = true;
+      k.lhs = lhs;
+      k.c = cp(q[1]);
+    } else {
+      k.type = 'lreg';
+      k.L = [cp(q[0])];
+      k.R = [cp(q[1])];
+    }
+  } else {
+    const m = relation(t);
+    if (!m) {
       k.c = cp(t);
       k.bare = k.c;
+      // Like Desmos, a bare expression in y alone is x = f(y); one in both x and y is the surface z = f(x, y).
+      k.type = k.c.deps.has('y') ? (k.c.deps.has('x') ? 'surf' : 'cartY') : 'cart';
     } else {
       const left = m[1].trim(),
         op = m[2];
@@ -338,13 +437,53 @@ export function parseRow(r, names) {
         } else k.type = 'cartY';
       } else {
         k.type = 'imp';
-        k.c = cp(`(${left})-(${right})`);
+        k.sides = [cp(left), cp(right)];
+        // ∫ dy/g(y) = ∫ f(x) dx is a family of curves: antiderivatives leave a constant, written C.
+        k.withC = k.sides.some(c => hasIndefinite(c.ast));
+        k.c = cp(`(${left})-(${right})${k.withC ? '-C' : ''}`);
       }
     }
   }
   r.k = k;
 }
-export function rebuild({ reset = false } = {}) {
+// dy/dx = …, typed as a fraction, as y′ or with the d/dx template.
+const ODE =
+  /^\s*(?:\(\s*dy\s*\)\s*\/\s*\(\s*dx\s*\)|dy\s*\/\s*dx|y\s*['′]|deriv\(\s*y\s*,\s*x\s*\))\s*=(?!=)\s*(.+)$/;
+// The comparison that makes a row an equation or inequality: the first one outside brackets and before any
+// `with`, so in y = a·x with a = 2 and [n for n = [1...5]] the later = signs belong to the expression.
+function relation(t) {
+  let depth = 0;
+  for (let i = 0; i < t.length; i++) {
+    const c = t[i];
+    if ('([{'.includes(c)) depth++;
+    else if (')]}'.includes(c)) depth--;
+    else if (depth === 0) {
+      if (/^with\b/.test(t.slice(i)) && !/\w/.test(t[i - 1] ?? '')) return null;
+      const op = t.slice(i).match(/^(?:<=|>=|<|>|=)/)?.[0];
+      if (op) return [t, t.slice(0, i), op, t.slice(i + op.length)];
+    }
+  }
+  return null;
+}
+let lastRows = [];
+const drawable = r => !r.off && !r.err && r.k && !['const', 'surf', 'fractal', 'calc'].includes(r.k.type),
+  onScreen = r => drawable(r) && (r.g?.L.length || r.g?.pts.length),
+  typingIn = r => !!r.inp && globalThis.document?.activeElement?.closest?.('.row') === r.inp.closest('.row');
+/* A keystroke that breaks the row being typed in, like deleting a point's comma, keeps the row's last good
+   drawing until it is whole again, so the graph morphs to the edit instead of vanishing and redrawing.
+   Leaving the row shows the error for real. */
+export function rebuild(options, held) {
+  const start = performance.now();
+  try {
+    return rebuildRows(options, held);
+  } finally {
+    timing('rebuild', performance.now() - start);
+  }
+}
+function rebuildRows({ reset = false } = {}, held = null) {
+  if (!held) for (const r of S.rows) r.heldText = null;
+  const before = held || new Map(S.rows.map(r => [r, [r.sig, r.prog, r.pw, r.shown]]));
+  const drawn = reset || S.mode3 ? [] : lastRows.filter(onScreen).map(r => [r, r.g, r.shown ?? 1]);
   S.marks = [];
   const names = new Set(),
     byName = new Map(),
@@ -352,6 +491,7 @@ export function rebuild({ reset = false } = {}) {
     nextGeo = new Set();
   defined = known;
   geoNames = nextGeo;
+  tableColumns = new Set();
   S.env = {
     fn: new Map(),
     def: new Map(),
@@ -362,11 +502,18 @@ export function rebuild({ reset = false } = {}) {
     r.mesh = null;
     r.err = '';
     r.info = '';
+    r.value = null;
+    r.assumed = false;
+    r.hint = '';
     r.stat = null;
     r.k = null;
     r.uses = new Set();
     if (isTableText(r.text)) {
-      for (const c of readTable(r.text)?.cols || []) if (columnName(c.h)) known.add(columnName(c.h));
+      for (const c of readTable(r.text)?.cols || [])
+        if (columnName(c.h)) {
+          known.add(columnName(c.h));
+          tableColumns.add(columnName(c.h));
+        }
       continue;
     }
     if (isGeoText(r.text)) {
@@ -375,7 +522,7 @@ export function rebuild({ reset = false } = {}) {
       continue;
     }
     try {
-      const d = definition(parts(r.text).body);
+      const d = definition(parts(r.heldText ?? r.text).body);
       if (d) {
         if (!byName.has(d.name)) byName.set(d.name, []);
         byName.get(d.name).push(r);
@@ -389,7 +536,7 @@ export function rebuild({ reset = false } = {}) {
   for (const r of S.rows) {
     try {
       if (!r.err) parseRow(r, names);
-      if (r.k && ['const', 'function'].includes(r.k.type)) {
+      if (r.k && (['const', 'function'].includes(r.k.type) || (r.k.type === 'pt' && r.k.name))) {
         const k = r.k;
         if (byName.get(k.name).length > 1) throw Error('Duplicate definition: ' + k.name);
         if (k.type === 'function')
@@ -408,13 +555,15 @@ export function rebuild({ reset = false } = {}) {
       r.err = e.message;
       r.k = null;
     }
-    if (reset || r.sig !== r.text) {
+    const text = r.heldText ?? r.text;
+    if (reset || r.sig !== text) {
       // Typing into a table only moves its points; it should not replay the whole reveal.
       if (reset || !(r.k?.type === 'table' && isTableText(r.sig || ''))) {
         r.pw = !reset && r.prog >= 1;
         r.prog = reduceMotion ? 1 : 0;
+        if (!r.pw) r.shown = r.prog;
       }
-      r.sig = r.text;
+      r.sig = text;
     }
   }
   geoRows = new Map();
@@ -432,26 +581,69 @@ export function rebuild({ reset = false } = {}) {
     r.k = { type: 'const', name: 'r', c: r.k.c, filter: null };
     S.env.def.set('r', { ast: r.k.c.ast, row: r });
   }
+  // z = 3 + 2i names a complex number, as on the Argand plane; z = 3 alone is still the plane in 3D.
+  const complexZ = S.rows.filter(r => {
+    if (r.k?.type !== 'surf' || r.k.bare || r.k.filter || ['x', 'y'].some(n => r.k.c.deps.has(n)))
+      return false;
+    try {
+      S.env.cache = nullObj();
+      return isComplex(valueOf(r.k.c));
+    } catch {
+      return false;
+    }
+  });
+  if (complexZ.length === 1) {
+    const r = complexZ[0];
+    r.k = { type: 'const', name: 'z', c: r.k.c, filter: null };
+    S.env.def.set('z', { ast: r.k.c.ast, row: r });
+  }
+  // dy/dx = F is solved before the sliders are made: only a solution has a constant C to slide.
+  for (const r of S.rows) {
+    r.symEq = null;
+    const k = r.k;
+    if (r.err || !k?.ode) continue;
+    let res = null;
+    try {
+      res = solveODE(k.ode.ast, S.env);
+    } catch {
+      // Drawn as a slope field below.
+    }
+    if (res) {
+      if (res.explicit) k.type = 'cart';
+      k.c = { ...k.ode, ast: res.explicit ? res.right : res.ast };
+      r.symEq = { ...res, deq: k.ode.ast };
+    } else {
+      k.type = 'field';
+      k.c = k.ode;
+      if (!k.ode.deps.has('C')) r.uses.delete('C');
+      r.info =
+        'Slope field: each dash shows the slope dy/dx a solution has there. Separable and linear equations are solved exactly; this one is drawn as its field';
+    }
+  }
   // Identify independent parameters only after every definition is known.
   const nextVM = nullObj();
   for (const r of S.rows) {
     if (!r.k) continue;
+    const sound = soundSliders(r.k.c?.ast || r.k.bare?.ast);
     for (const n of r.uses) {
       if (reserved(n) || names.has(n) || byName.has(n) || columns.has(n) || n === r.k.param) continue;
-      if (!own(S.vars, n)) S.vars[n] = 1;
+      // A slider that only sets a tone's pitch or volume starts somewhere you can hear, with a range to match.
+      const [lo, hi, start] = (!S.ranges[n] && sound.get(n)) || [];
+      if (!own(S.vars, n) || (start && !(S.vars[n] >= lo && S.vars[n] <= hi))) S.vars[n] = start ?? 1;
       if (!nextVM[n])
         nextVM[n] = {
           own: r.id,
-          ...sliderRange(n, S.vars[n]),
+          ...sliderRange(n, S.vars[n], lo, hi),
           direction: S.VM[n]?.direction || 1,
         };
     }
   }
   for (const r of S.rows) {
     const k = r.k;
-    if (k?.type === 'const' && k.c.deps.size === 0) {
+    if (k?.type === 'const' && k.c.deps.size === 0 && !distAst(k.c.ast)) {
       try {
-        const v = val(k.c);
+        const v = valueOf(k.c);
+        if (Array.isArray(v) || (typeof v === 'object' && v)) continue;
         if (!Number.isFinite(v)) throw Error('Not a finite number');
         const [lo, hi] = k.range ? parameterBounds(k.range, k.name) : [];
         nextVM[k.name] = {
@@ -513,21 +705,110 @@ export function rebuild({ reset = false } = {}) {
   // An expression with nothing to plot against, like `apples + 10`, shows its value.
   for (const r of S.rows) {
     const k = r.k;
+    if (!r.err && k && (k.bare || k.type === 'const') && !k.filter && !k.range && coordFree(r.uses)) {
+      const src = k.type === 'const' ? { k: 'name', n: k.name } : k.bare.ast;
+      const kind = distAst(src);
+      if (kind) {
+        // A count distribution is drawn as steps one unit wide, so each whole number's probability is a bar.
+        const x = { k: 'name', n: 'x' },
+          at = ['poissondist', 'binomialdist'].includes(kind) ? { k: 'call', n: 'round', a: [x] } : x;
+        k.dist = src;
+        k.type = 'cart';
+        k.c = { ast: { k: 'method', a: src, n: 'pdf', args: [at] }, deps: new Set(['x']) };
+        distInfo(r);
+        continue;
+      }
+      if (shapeOf(r, src)) continue;
+    }
+    if (!r.err && k?.bare && k.type === 'surf') r.info = 'Surface z = f(x, y), drawn in the 3D view';
+    if (!r.err && k?.sides && !k.filter && coordFree(r.uses)) {
+      k.type = 'calc';
+      k.c = k.sides[0];
+      checkInfo(r);
+      continue;
+    }
+    const top = k?.bare?.ast;
+    if (!r.err && top?.k === 'call' && own(NEEDS_NUMBERS, top.n) && !coordFree(r.uses)) {
+      r.err = NEEDS_NUMBERS[top.n];
+      continue;
+    }
     if (r.err || !k?.bare || k.filter || k.reg || !coordFree(r.uses)) continue;
     k.type = 'calc';
     k.c = k.bare;
     calcInfo(r);
   }
+  // d/dx x² and ∫ x² dx are worked out by hand too, so the row can say = 2x, the way 10 + 5 says = 15.
+  for (const r of S.rows) {
+    r.sym = r.series = r.symSrc = r.symArea = null;
+    const k = r.k;
+    if (k?.ode) continue;
+    if (!r.err && k?.withC) {
+      try {
+        const res = integralEquation(k.sides[0].ast, k.sides[1].ast, S.env);
+        if (res) {
+          k.c = { ...k.c, ast: res.ast };
+          r.symEq = res;
+        }
+      } catch {
+        // Left to be drawn numerically.
+      }
+      continue;
+    }
+    if (r.err || !k || !['cart', 'cartY', 'function'].includes(k.type) || k.reg || k.dist) continue;
+    const src = k.c?.ast;
+    try {
+      const res = calculus(src, S.env);
+      if (res) {
+        [r.symSrc, r.series, r.symIndef] = [src, res.series || null, res.indefinite];
+        [r.seriesAt, r.graphFrom, r.symArea] = [res.center || 0, res.from || 0, res.area || null];
+        // The curve is drawn from the formula: exact, and far cheaper than integrating at every point.
+        // With none, it is the area from a point where the integrand is defined.
+        if (res.ast || res.graph) k.c = { ...k.c, ast: res.ast || res.graph };
+        if (res.ast) r.sym = res.ast;
+      }
+    } catch (e) {
+      if (!r.info) r.info = e.message;
+    }
+  }
+  for (const r of S.rows)
+    if (!r.err && !r.info && ['cart', 'function'].includes(r.k?.type) && complexCurve(r))
+      r.info = 'Its values are complex, so there is no real curve: graph re(…) or im(…) of it instead';
+  S.rows.forEach(listInfo);
   fitPass();
   lregPass();
+  if (!held) {
+    const hold = S.rows.filter(r => r.err && r.good && r.good !== r.text && typingIn(r));
+    if (hold.length) {
+      for (const r of S.rows) if (before.has(r)) [r.sig, r.prog, r.pw, r.shown] = before.get(r);
+      for (const r of hold) [r.heldText, r.heldMsg] = [r.good, r.err];
+      return rebuild({ reset }, before);
+    }
+  }
+  for (const r of S.rows)
+    if (r.heldText && drawable(r)) {
+      r.assumed = true;
+      r.info = r.heldMsg;
+    } else if (drawable(r)) r.good = r.text;
+  // A curve that stops being drawn bursts into embers rather than blinking out: its expression broke, emptied,
+  // became a plain value (2x → 2), or its row was deleted. Loading a preset replaces every row at once, so
+  // only a single deleted row counts; hiding a curve is not a break.
+  const oneDeleted = S.rows.length === lastRows.length - 1;
+  for (const [r, g, shown] of drawn)
+    if (S.rows.includes(r) ? !r.off && !drawable(r) : oneDeleted) shatter(g, r.col, shown);
+  lastRows = [...S.rows];
   for (const r of S.rows) {
+    if (r.assumed && !r.err && !r.info) r.info = r.hint || 'Unfinished: showing the closest complete graph';
     showError(r);
     sliders(r);
     fractalControls(r);
     tableUI(r);
     geoUI(r);
     regCard(r);
+    valueCard(r);
+    stepsCard(r);
   }
+  applyColors();
+  syncTones();
   if (globalThis.document?.getElementById('rows')?.childElementCount) syncBlank();
   updateStatus();
   S.dirty = true;
@@ -535,6 +816,21 @@ export function rebuild({ reset = false } = {}) {
   saveSoon();
   scheduleHistory();
 }
+// e^(ix): complex wherever it is tried.
+function complexCurve(r) {
+  try {
+    S.env.cache = nullObj();
+    return [0.7, 1.9].every(x => isComplex(val(r.k.c, { [r.k.param || 'x']: x })));
+  } catch {
+    return false;
+  }
+}
+// Values that aren't numbers can't be graphed against x, so these say what to give them instead.
+const NEEDS_NUMBERS = {
+  tone: 'tone takes a number, not x, like tone(440)',
+  rgb: 'rgb takes numbers, not x, like rgb(255, 120, 60)',
+  hsv: 'hsv takes numbers, not x, like hsv(30, 1, 1)',
+};
 function coordFree(uses, seen = new Set()) {
   for (const n of uses) {
     if (seen.has(n)) continue;
@@ -549,13 +845,262 @@ function coordFree(uses, seen = new Set()) {
   }
   return true;
 }
-function calcInfo(r) {
+// The colour variables defined so far, for the colour menu: [name, Color].
+export function colorVariables() {
+  const out = [];
+  for (const n of S.env.def.keys())
+    try {
+      S.env.cache = nullObj();
+      const v = val({ ast: { k: 'name', n } });
+      if (v instanceof Color) out.push([n, v]);
+    } catch {}
+  return out;
+}
+// A row coloured by a variable, as in Desmos's custom colours, follows it as sliders move.
+function applyColors() {
+  for (const r of S.rows) {
+    if (!r.colVar) continue;
+    try {
+      S.env.cache = nullObj();
+      const c = val({ ast: { k: 'name', n: r.colVar } });
+      if (c instanceof Color && c.hex !== r.col) {
+        r.col = c.hex;
+        decorate(r);
+        S.dirty = true;
+      }
+    } catch {}
+  }
+}
+// A row whose value is a point, polygon or plot (or a list of them) draws it. A complex number is a point on
+// the Argand plane; in a list with one, the real numbers are points on the real axis.
+const drawn1 = v => v instanceof Point || v instanceof Shape || isComplex(v),
+  drawnValue = v =>
+    drawn1(v) ||
+    (Array.isArray(v) &&
+      v.length > 0 &&
+      v.every(x => drawn1(x) || (typeof x === 'number' && v.some(isComplex))));
+function shapeOf(r, src) {
+  let v;
   try {
     S.env.cache = nullObj();
-    r.info = '= ' + calcFmt(ddValue(r.k.c, val));
+    v = valueOf({ ast: src });
+  } catch {
+    return false;
+  }
+  if (!drawnValue(v)) return false;
+  r.k.src = src;
+  r.k.type = 'shape';
+  shapeInfo(r, v);
+  return true;
+}
+function shapeInfo(r, v) {
+  const all = [v].flat(),
+    points = all.every(p => p instanceof Point);
+  r.k.complex = all.some(isComplex);
+  r.polar = null;
+  if (r.k.complex) {
+    // A list of them is easier to scan at five figures.
+    r.info =
+      '= ' +
+      (Array.isArray(v) ? listFmt(v.map(z => (isComplex(z) ? complexText(z.re, z.im, fmt) : z))) : String(v));
+    if (!Array.isArray(v)) r.polar = polarText(v, r.k.name);
+    return;
+  }
+  r.info = !all.length
+    ? ''
+    : all.length === 1
+      ? points
+        ? 'Point ' + all[0]
+        : all[0].info
+      : points
+        ? `${all.length} points`
+        : `${all.length} shapes`;
+}
+// What a row's value draws, in graph units: outlines, filled regions and dots.
+export function shapeValue(r) {
+  const out = { paths: [], fills: [], points: [], guides: [] };
+  let v;
+  try {
+    v = valueOf({ ast: r.k.src });
+  } catch (e) {
+    r.runtimeError = e.message;
+    return out;
+  }
+  const all = [v].flat(),
+    arrows = r.k.complex && all.length <= 24;
+  for (const s of all)
+    if (s instanceof Point) out.points.push([s.x, s.y]);
+    else if (s instanceof Shape) {
+      out.paths.push(...s.paths);
+      out.fills.push(...s.fills);
+      out.points.push(...s.points);
+    } else if (r.k.complex && (isComplex(s) || typeof s === 'number')) {
+      const z = [reOf(s), imOf(s)];
+      if (!z.every(Number.isFinite)) continue;
+      out.points.push(z);
+      if (arrows) out.paths.push(...arrow(z));
+    }
+  if (r.k.complex && !Array.isArray(v)) out.guides = construction(r.k.src);
+  return out;
+}
+/* The Argand diagram draws a complex number as an arrow from 0. The head is a fixed size on screen; a number
+   too close to 0 for one is just its dot. */
+function arrow([x, y]) {
+  const len = Math.hypot(x, y) * S.V.s;
+  if (len < 3) return [];
+  const shaft = [0, 0, x, y];
+  if (len < 16) return [shaft];
+  const a = Math.atan2(y, x),
+    h = 9 / S.V.s,
+    wing = s => [x - h * Math.cos(a + s * 0.42), y - h * Math.sin(a + s * 0.42)];
+  return [shaft, [...wing(1), x, y, ...wing(-1)]];
+}
+/* How a sum, difference, product or quotient of named numbers was made, drawn faintly behind its answer:
+   z + w completes the parallelogram on z and w, z − w is the arrow from w to z, and z·w turns z through
+   arg w (z / w back through it). The same goes for a row naming one, like u = z·w. */
+function construction(src) {
+  let e = src;
+  if (e.k === 'name' && S.env.def.has(e.n)) e = S.env.def.get(e.n).ast;
+  const named = n =>
+      !!n &&
+      typeof n === 'object' &&
+      ((n.k === 'name' && !own(constants, n.n)) || Object.values(n).some(named)),
+    num = n => {
+      const v = valueOf({ ast: n });
+      return typeof v === 'number' || isComplex(v) ? [reOf(v), imOf(v)] : null;
+    },
+    ray = ([x, y]) => [0, 0, x, y];
+  try {
+    if (e.k === 'call' && e.n === 'conj' && e.a.length === 1 && named(e.a[0])) {
+      const z = num(e.a[0]);
+      return z ? [ray(z), [z[0], z[1], z[0], -z[1]]] : [];
+    }
+    if (e.k !== 'binary' || !'+-*/'.includes(e.op) || !(named(e.a) || named(e.b))) return [];
+    const a = num(e.a),
+      b = num(e.b);
+    if (!a || !b) return [];
+    if (e.op === '+') {
+      const s = [a[0] + b[0], a[1] + b[1]];
+      return [ray(a), ray(b), [...a, ...s], [...b, ...s]];
+    }
+    if (e.op === '-') return [ray(a), ray(b), [...b, ...a]];
+    // The turn: an arc from z's direction through arg w, close to 0 so it reads as an angle.
+    const from = Math.atan2(a[1], a[0]),
+      turn = Math.atan2(b[1], b[0]) * (e.op === '*' ? 1 : -1),
+      size = Math.hypot(...a),
+      reach = Math.min(size, e.op === '*' ? size * Math.hypot(...b) : size / Math.hypot(...b)),
+      R = clamp(0.45 * reach * S.V.s, 36, 90) / S.V.s,
+      arc = [];
+    if (Math.abs(turn) > 1e-9)
+      for (let j = 0; j <= 32; j++) {
+        const t = from + (turn * j) / 32;
+        arc.push(R * Math.cos(t), R * Math.sin(t));
+      }
+    return [ray(a), ray(b), ...(arc.length ? [arc] : [])];
+  } catch {
+    return [];
+  }
+}
+function polarText(z, n) {
+  const r = fmt(Math.hypot(z.re, z.im)),
+    a = Math.atan2(z.im, z.re),
+    angle = `${fmt(a)} rad (${fmt((a * 180) / Math.PI)}°)`;
+  return n ? `|${n}| = ${r}, arg ${n} = ${angle}` : `modulus ${r}, argument ${angle}`;
+}
+// normaldist(…), or a name defined as one: a row holding it draws the density. Gives the distribution's name.
+function distAst(n, seen = new Set()) {
+  if (n.k === 'call') return DIST_NAMES.includes(n.n) && n.n;
+  if (n.k !== 'name' || seen.has(n.n) || !S.env.def.has(n.n)) return false;
+  seen.add(n.n);
+  return distAst(S.env.def.get(n.n).ast, seen);
+}
+function distInfo(r) {
+  try {
+    S.env.cache = nullObj();
+    const v = val({ ast: r.k.dist }),
+      all = [v].flat();
+    r.info = all.every(d => d instanceof Dist)
+      ? all.length === 1
+        ? all[0].describe()
+        : `${all.length} ${all[0].k.name.toLowerCase()} distributions`
+      : 'Undefined' + why({ ast: r.k.dist });
   } catch (e) {
     r.err = e.message;
   }
+}
+const why = c => {
+  const reason = undefinedReason(c.ast, {}, S.env);
+  return reason ? ': ' + reason : '';
+};
+// Values that aren't numbers describe themselves; matrices, colours, tests and tones also get a card.
+const carded = v =>
+  [v].flat().some(x => x instanceof Matrix || x instanceof Color || x instanceof Tone || x instanceof TTest);
+// What will actually come out of the speakers, and why when it's nothing.
+function toneInfo(t) {
+  const hz = show(t.freq) + ' Hz';
+  if (!(t.freq >= 20 && t.freq <= 20000)) return `${hz} is outside hearing (20 to 20000 Hz)`;
+  if (!(t.gain > 0)) return `${hz}, silent at volume 0`;
+  const note = noteName(t.freq);
+  return `${hz}${note} at volume ${show(Math.min(t.gain, 1))}`;
+}
+// The nearest piano note, when the frequency is close to one: 440 Hz is A4.
+function noteName(f) {
+  const n = 12 * Math.log2(f / 440) + 57,
+    k = Math.round(n);
+  if (Math.abs(n - k) > 0.1) return '';
+  return ` (${['C', 'C♯', 'D', 'D♯', 'E', 'F', 'F♯', 'G', 'G♯', 'A', 'A♯', 'B'][((k % 12) + 12) % 12]}${Math.floor(k / 12)})`;
+}
+function valueInfo(v) {
+  if (v instanceof Matrix) return `${v.m}×${v.n} matrix`;
+  if (v instanceof Color) return 'Colour ' + v;
+  if (v instanceof TTest) return v.kind;
+  if (v instanceof Tone) return toneInfo(v);
+  if (v instanceof Dist) return v.describe();
+  return '= ' + String(v);
+}
+function calcInfo(r) {
+  try {
+    S.env.cache = nullObj();
+    const v = ddValue(r.k.c, val);
+    r.value = carded(v) ? v : null;
+    r.info = Array.isArray(v)
+      ? '= ' + listFmt(v)
+      : typeof v === 'object' && v
+        ? valueInfo(v)
+        : Number.isNaN(v)
+          ? 'Undefined' + why(r.k.c)
+          : '= ' + calcFmt(v);
+  } catch (e) {
+    r.err = e.message;
+  }
+}
+// An equation with no x or y on either side, like 2 + 2 = 4, is checked rather than drawn.
+function checkInfo(r) {
+  try {
+    S.env.cache = nullObj();
+    const [a, b] = r.k.sides.map(c => valueOf(c));
+    if ([a, b].some(Array.isArray)) throw Error('Compare numbers, not lists');
+    const bad = r.k.sides.find((c, i) => Number.isNaN([a, b][i])),
+      size = v => Math.hypot(reOf(v), imOf(v)),
+      gap = size(isComplex(a) || isComplex(b) ? complexOp('-', a, b) : a - b);
+    r.info = bad
+      ? 'Undefined' + why(bad)
+      : gap <= 1e-9 * Math.max(1, size(a), size(b))
+        ? 'True'
+        : `False: ${show(a)} ≠ ${show(b)}`;
+  } catch (e) {
+    r.err = e.message;
+  }
+}
+// Names given straight to tone( ): the frequency's slider runs over hearing, the gain's from 0 to 1.
+function soundSliders(ast, out = new Map()) {
+  if (!ast || typeof ast !== 'object') return out;
+  if (ast.k === 'call' && ast.n === 'tone') {
+    if (ast.a[0]?.k === 'name') out.set(ast.a[0].n, [20, 2000, 440]);
+    if (ast.a[1]?.k === 'name') out.set(ast.a[1].n, [0, 1, 0.5]);
+  }
+  for (const v of Object.values(ast)) if (v && typeof v === 'object') soundSliders(v, out);
+  return out;
 }
 function rangeFor(v) {
   const R = Math.max(10, 10 ** Math.ceil(Math.log10(Math.abs(v) + 1)));
@@ -564,10 +1109,17 @@ function rangeFor(v) {
     max: R,
   };
 }
+// As in Desmos, a slider moves in tidy steps unless told otherwise: 0.1 across −10…10, scaling with the range.
+// A step of 0 chosen by the user means as fine as the slider can go.
+export const defaultStep = (min, max) => 10 ** (Math.floor(Math.log10(max - min)) - 2);
 function sliderRange(n, v, lo, hi) {
-  const R = S.ranges[n];
-  if (R) return { min: Math.min(R.min, v), max: Math.max(R.max, v), step: R.step };
-  return { ...(lo < hi ? { min: lo, max: hi } : rangeFor(v)), step: 0 };
+  const R = S.ranges[n],
+    span = R
+      ? { min: Math.min(R.min, v), max: Math.max(R.max, v) }
+      : lo < hi
+        ? { min: lo, max: hi }
+        : rangeFor(v);
+  return { ...span, step: R?.step ?? defaultStep(span.min, span.max) };
 }
 export function snapValue(m, v) {
   const q = m.step > 0 ? m.step : 10 ** Math.floor(Math.log10((m.max - m.min) / 1000));
@@ -611,12 +1163,37 @@ export function setVar(n, v) {
   S.env.cache = nullObj();
   S.marks = [];
   S.dirty = true;
+  // A regression solves for its unknowns given everything else, so it re-solves as any other slider moves.
+  const fits = S.rows.filter(r => !r.err && (r.k?.reg || r.k?.type === 'lreg'));
+  if (fits.length) {
+    fitPass(n);
+    lregPass(n);
+    for (const r of fits) {
+      sliders(r);
+      regCard(r);
+    }
+  }
   S.rows.forEach(r => {
     r.mesh = null;
     if (r.k?.type === 'calc' && !r.err) {
-      calcInfo(r);
+      (r.k.sides ? checkInfo : calcInfo)(r);
       showError(r);
     }
+    if (r.k?.dist && !r.err) {
+      distInfo(r);
+      showError(r);
+    }
+    if (r.k?.type === 'shape' && !r.err) {
+      try {
+        shapeInfo(r, val({ ast: r.k.src }));
+      } catch {}
+      showError(r);
+    }
+    if (r.k?.type === 'const' && !r.err && !S.VM[r.k.name]) {
+      listInfo(r);
+      showError(r);
+    }
+    if (r.k?.type === 'calc' || r.k?.type === 'const') valueCard(r);
     if (r.k?.type === 'ggb') {
       try {
         geoEval(r);
@@ -631,21 +1208,36 @@ export function setVar(n, v) {
       showError(r);
     }
   });
+  applyColors();
+  syncTones();
   syncSliders();
   kick();
   saveSoon();
 }
-function lregPass() {
+// held: a slider being dragged; a fit that would solve for it is left as it is rather than fight the drag.
+function lregPass(held) {
   for (const r of S.rows) {
     const k = r.k;
     if (!k || k.type !== 'lreg' || r.err || r.off) continue;
     const ps = [...r.uses].filter(n => own(S.vars, n)),
       orig = ps.map(n => S.vars[n]);
+    if (ps.includes(held)) continue;
     try {
-      const res = () => {
-        S.env.cache = nullObj();
-        return k.L.map((c, i) => val(c) - val(k.R[i]));
-      };
+      // Either side may be a list; a number is matched against every element of the other side.
+      const pairs = () => {
+          S.env.cache = nullObj();
+          return k.L.flatMap((c, i) => {
+            const a = val(c),
+              b = val(k.R[i]);
+            if (!Array.isArray(a) && !Array.isArray(b)) return [[a, b]];
+            const n = Math.min(...[a, b].filter(Array.isArray).map(v => v.length));
+            return Array.from({ length: n }, (_, j) => [
+              Array.isArray(a) ? a[j] : a,
+              Array.isArray(b) ? b[j] : b,
+            ]);
+          });
+        },
+        res = () => pairs().map(([a, b]) => a - b);
       if (ps.length) {
         ps.forEach(p => (S.vars[p] = 1));
         lm(ps, res, S.vars);
@@ -671,9 +1263,36 @@ function lregPass() {
               )
               .join(', ')
           : '');
+      if (e.some(v => !Number.isFinite(v))) throw Error('The model is undefined for some of the data');
+      // An exact fit leaves rounding dust like 1.6e-13, which reads as 0.
+      const scale = Math.max(1, ...pairs().flat().map(Math.abs));
+      e.forEach((v, i) => Math.abs(v) < 1e-9 * scale && (e[i] = 0));
+      // y₁ ~ m x₁ + b also draws its model, with the one list on the right read as x.
+      const isList = n => {
+          try {
+            return Array.isArray(val({ ast: { k: 'name', n } }));
+          } catch {
+            return false;
+          }
+        },
+        inputs = [...k.R[0].deps].filter(n => S.env.def.has(n) && isList(n));
+      [k.c, k.xKey] =
+        k.L.length === 1 &&
+        k.L[0].ast.k === 'name' &&
+        isList(k.L[0].ast.n) &&
+        inputs.length === 1 &&
+        !k.R[0].deps.has('x')
+          ? [k.R[0], inputs[0]]
+          : [null, null];
+      const ys = pairs().map(p => p[0]),
+        mean = ys.reduce((s, y) => s + y, 0) / ys.length,
+        total = ys.reduce((s, y) => s + (y - mean) ** 2, 0);
       r.stat = {
         params: ps.map(p => [p, S.vars[p]]),
-        stats: [['RMSE', Math.sqrt(sse(e) / (e.length || 1))]],
+        stats: [
+          ...(e.length > 1 && total > 0 ? [['R²', 1 - sse(e) / total]] : []),
+          ['RMSE', Math.sqrt(sse(e) / (e.length || 1))],
+        ],
         resid: e,
       };
       r.info = '';
@@ -685,7 +1304,7 @@ function lregPass() {
     S.env.cache = nullObj();
   }
 }
-function fitPass() {
+function fitPass(held) {
   const DATA = S.rows
     .filter(r => !r.off && !r.err && r.k?.type === 'pts')
     .flatMap(r =>
@@ -721,6 +1340,7 @@ function fitPass() {
       r.k.xKey = t.k.x;
     }
     const ps = [...r.uses].filter(n => own(S.vars, n));
+    if (ps.includes(held)) continue;
     if (!ps.length) {
       r.info = 'Use free parameters such as m and b';
       continue;
@@ -865,17 +1485,33 @@ export function fractalParams(r) {
     iterations,
   };
 }
+/* While an expression is being typed, a half-finished one is drawn as the closest complete one: a trailing
+   operator is dropped (2x + reads as 2x, x^ as x), an empty input or coordinate counts as 0, and open
+   brackets close. The graph holds still or morphs instead of vanishing on every keystroke. */
+const fillCalls = s => s.replace(/\b([a-zA-Z]\w*)\(\s*\)/g, (m, n) => (emptyCalls.has(n) ? m : n + '(0)'));
 const repairExpression = s => {
   let t = s;
   for (let i = 0; i < 5; i++)
     t = t
       .replace(/\^\(\s*\)/g, '')
       .replace(/\/\(\s*\)/g, '')
-      .replace(/[+\-*/^=<>,~]\s*(\)*)$/, '$1')
-      .replace(/\(\s*\)$/, '');
-  const o = (t.match(/\(/g) || []).length - (t.match(/\)/g) || []).length;
-  return o > 0 ? t + ')'.repeat(o) : t;
+      // A point being edited: (−, 4) and (, 4) are (0, 4), (3, ) is (3, 0), and a cleared one is left out.
+      .replace(/[+\-*/^]\s*(?=[,)\]])/g, '')
+      .replace(/,\s*\(\s*\)(?=\s*[,)\]])/g, '')
+      .replace(/(?<![\w)\]])\(\s*,/g, '(0,')
+      .replace(/(?<![\w)\]])\(([^(),]*),\s*\)/g, '($1,0)')
+      .replace(/[+\-*/^=<>,~.]\s*([)\]]*)$/, '$1')
+      .replace(/(?<![\w)\]])\(\s*\)$/, '')
+      .replace(/\(\s*,/g, '(0,')
+      .replace(/,\s*(?=[,)])/g, ',0');
+  const open = [];
+  for (const c of t) {
+    if (c === '(' || c === '[') open.push(c === '(' ? ')' : ']');
+    else if ((c === ')' || c === ']') && open.at(-1) === c) open.pop();
+  }
+  return fillCalls(t + open.reverse().join('')).trim() || '0';
 };
+const editing = () => !!globalThis.document?.activeElement?.closest?.('.row');
 // Empty slots left by the editor, like x/() or 2^(), never mean anything; read them as absent.
 const dropEmpty = s => {
   for (let i = 0; i < 5; i++) {
@@ -887,14 +1523,18 @@ const dropEmpty = s => {
 };
 export function compile(source, functionNames) {
   if (typeof source === 'string' && source.includes('()')) source = dropEmpty(source);
+  if (typeof source === 'string' && editing() && fillCalls(source) !== source)
+    return { ...compile(fillCalls(source), functionNames), assumed: true };
   try {
     return compileExpr(source, functionNames, defined);
   } catch (err) {
-    if (typeof source === 'string' && document.activeElement?.closest?.('.row')) {
+    if (typeof source === 'string' && editing()) {
       const f = repairExpression(source);
-      if (f !== source && f.trim()) {
+      if (f !== source) {
         try {
-          return compileExpr(f, functionNames, defined);
+          // "Add the upper bound" still says what is missing while the graph stands in with 0.
+          const hint = /^Add /.test(err.message) ? err.message : '';
+          return { ...compileExpr(f, functionNames, defined), assumed: true, hint };
         } catch {}
       }
     }

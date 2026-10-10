@@ -1,6 +1,8 @@
 import {
+  colorVariables,
   columnColour,
   compile,
+  defaultStep,
   fractalParams,
   geoValue,
   makeRow,
@@ -13,7 +15,7 @@ import {
 } from '../app/model.js';
 import { saveSoon } from '../app/persistence.js';
 import { frameFractal } from '../app/scenes.js';
-import { S } from '../app/state.js';
+import { PAL, S } from '../app/state.js';
 import { $ } from '../core/dom.js';
 import { makeEditor } from '../editor/mathEditor.js';
 import { SYM, own } from '../math/catalog.js';
@@ -21,10 +23,13 @@ import { fmt } from '../math/format.js';
 import { isGeoText } from '../io/geogebraEval.js';
 import { boxCells, boxDimension, defaultBoxSize } from '../math/boxCount.js';
 import { FRACTALS, fractalText } from '../math/fractals.js';
+import { derivativeSteps, integralSteps, odeSteps } from '../math/symbolic.js';
 import { FITS, columnName, emptyTable, fitEquation, isTableText, writeTable } from '../math/table.js';
 import { kick } from '../render/renderer.js';
+import { isPlaying, toggleTone } from '../app/sound.js';
+import { Color, Matrix, TTest, Tone } from '../math/values.js';
 import { bindCompletions, closeCompletions, updateCompletions } from './completions.js';
-import { nm, pretty } from './mathDisplay.js';
+import { astHTML, nm, pretty } from './mathDisplay.js';
 
 function autoSym(inp) {
   const pos = inp.selectionStart,
@@ -52,13 +57,40 @@ function autoSym(inp) {
     inp.setSelectionRange(q, q);
   }
 }
+// The variable a row's series is in: x for ∫ f dx, and the upper bound's for ∫₀ˣ f(t) dt.
+const seriesVar = r => (r.symSrc?.a.length === 4 ? r.symSrc.a[3]?.n : r.symSrc?.a[1]?.n) || 'x';
 export function showError(r) {
+  r.errShown = '';
   decorate(r);
   if (r.errEl) {
-    const answer = !r.err && r.k?.type === 'calc';
-    r.errEl.textContent = r.err || r.info;
-    r.errEl.style.color = r.err || answer ? '' : 'var(--dim)';
-    r.errEl.classList.toggle('answer', answer);
+    // Only a value gets the large answer style; a sentence like "Undefined: …" reads as a note.
+    const answer = !r.err && (r.k?.type === 'calc' || r.k?.complex) && /^(= |True|False)/.test(r.info);
+    // An empty box in ∫, Σ or d/dx is a step still to take, so it reads as a note rather than a mistake.
+    const step = /^Add /.test(r.err);
+    const formula = !r.err && (r.sym || r.symArea),
+      series = !r.err && !r.sym && r.series,
+      solved = !r.err && r.symEq;
+    if (solved)
+      r.errEl.innerHTML =
+        `<span class="sym-note">${
+          solved.deq
+            ? `General solution of <i>dy</i>/<i>dx</i> = ${astHTML(solved.deq)}`
+            : 'With the constant the antiderivatives leave'
+        }</span>` + `<span class="sym-series">${astHTML(solved.left)} = ${astHTML(solved.right)}</span>`;
+    else if (formula) r.errEl.innerHTML = '= ' + astHTML(formula) + (r.symIndef ? ' + <i>C</i>' : '');
+    else if (series)
+      r.errEl.innerHTML =
+        `<span class="sym-note">As a power series near ${seriesVar(r)} = ${fmt(r.seriesAt || 0).replace(/-/g, '−')}</span>` +
+        `<span class="sym-series">≈ ${astHTML(r.series)} + ⋯${r.symIndef ? ' + <i>C</i>' : ''}</span>`;
+    else if (answer && r.k.complex && r.polar) {
+      r.errEl.textContent = r.info;
+      const note = document.createElement('span');
+      note.className = 'sym-note polar';
+      note.textContent = r.polar;
+      r.errEl.append(note);
+    } else r.errEl.textContent = r.err || r.info;
+    r.errEl.style.color = (r.err && !step) || answer || formula || series || solved ? '' : 'var(--dim)';
+    r.errEl.classList.toggle('answer', answer || !!formula || !!series || !!solved);
   }
 }
 export function syncSliders() {
@@ -167,24 +199,28 @@ function limitsEditor(n, slider) {
   box.dataset.lim = n;
   const lo = field('min', fmt(m.min), `Lowest ${n}`),
     hi = field('max', fmt(m.max), `Highest ${n}`),
-    st = field('step', m.step ? fmt(m.step) : '', `Step for ${n}`);
-  st.placeholder = 'any';
+    chosen = S.ranges[n]?.step,
+    // Left blank, the step follows the range (0.1 for −10…10); 0 means as smooth as the slider can go.
+    st = field('step', chosen === undefined ? '' : fmt(chosen), `Step for ${n}, 0 for smooth`);
+  st.placeholder = fmt(defaultStep(m.min, m.max));
   function apply() {
     const a = readLimit(lo.value),
       b = readLimit(hi.value),
-      s = st.value.trim() ? readLimit(st.value) : 0,
-      order = !(a >= b);
+      s = st.value.trim() ? readLimit(st.value) : undefined,
+      order = !(a >= b),
+      stepOk = s === undefined || (s >= 0 && s <= b - a);
     lo.classList.toggle('bad', !Number.isFinite(a) || !order);
     hi.classList.toggle('bad', !Number.isFinite(b) || !order);
-    st.classList.toggle('bad', !(s >= 0 && s <= b - a));
-    if (!(a < b && s >= 0 && s <= b - a)) return;
+    st.classList.toggle('bad', !stepOk);
+    if (!(a < b && stepOk)) return;
     const vm = S.VM[n];
     if (!vm) return;
-    S.ranges[n] = { min: a, max: b, step: s };
-    Object.assign(vm, S.ranges[n]);
+    S.ranges[n] = s === undefined ? { min: a, max: b } : { min: a, max: b, step: s };
+    Object.assign(vm, { min: a, max: b, step: s ?? defaultStep(a, b) });
+    st.placeholder = fmt(defaultStep(a, b));
     slider.min = a;
     slider.max = b;
-    slider.step = s || 'any';
+    slider.step = vm.step || 'any';
     let v;
     try {
       v = parameter(n);
@@ -219,6 +255,310 @@ export function regCard(r) {
       S.stats.map(([n, v]) => nm(n) + ' = ' + fmt(v)),
     ) +
     sec('RESIDUALS', [nm('e') + ' = [' + res + ']']);
+  r.slEl.append(box);
+}
+/* The working behind an integral row's formula, behind a toggle, with a tab for each method that gives a
+   different-looking answer. */
+const sameAst = (a, b) => JSON.stringify(a) === JSON.stringify(b),
+  // Inline maths in a sentence: letters italic, function names and the d of a differential upright.
+  mtext = s =>
+    escapeHTML(s).replace(
+      /\b(arcsin|arctan|sin|cos|tan|cot|sec|csc|ln)\b|d(?=[A-Za-zθ])|([A-Za-zθ])/g,
+      (m, fn, letter) => fn || (letter ? `<i>${letter}</i>` : m),
+    ),
+  say = parts =>
+    parts
+      .map(p =>
+        typeof p === 'string'
+          ? escapeHTML(p)
+          : `<span class="mi">${p.k === 'mtext' ? mtext(p.s) : astHTML(p)}</span>`,
+      )
+      .join(''),
+  work = (lines, first = true) =>
+    `<div class="step-work">${lines.map((x, i) => `<span>${i || !first ? '= ' : ''}${astHTML(x)}</span>`).join('')}</div>`;
+function stepHTML(n) {
+  const kids = n.kids.length ? `<ol class="steps">${n.kids.map(stepHTML).join('')}</ol>` : '',
+    top = [n.head, ...n.chain],
+    after = (n.after || []).filter(x => !sameAst(x, n.to)),
+    end = [
+      ...after,
+      ...(sameAst(top.at(-1), n.to) ||
+      (!after.length && n.kids.length === 1 && !n.kidsFirst && sameAst(n.kids[0].to, n.to))
+        ? []
+        : [n.to]),
+    ],
+    body = n.kidsFirst
+      ? work([...top, ...end])
+      : n.kids.length
+        ? work(top) + kids + (end.length ? work(end, false) : '')
+        : work([...top, ...end]);
+  return (
+    (n.kidsFirst ? n.kids.map(stepHTML).join('') : '') +
+    `<li class="step"><div class="step-rule">${escapeHTML(n.rule)}</div>` +
+    (n.why.length ? `<div class="step-why">${say(n.why)}</div>` : '') +
+    body +
+    '</li>'
+  );
+}
+function seriesHTML(r, s) {
+  const at = s.series?.center ?? r.seriesAt ?? 0,
+    c = { k: 'num', v: at },
+    v = at
+      ? { k: 'binary', op: at < 0 ? '+' : '-', a: { k: 'name', n: s.v }, b: { k: 'num', v: Math.abs(at) } }
+      : { k: 'name', n: s.v },
+    f = s.f,
+    where = `${s.v} = ${fmt(at).replace(/-/g, '−')}`,
+    lead = (rule, why, html) =>
+      `<li class="step"><div class="step-rule">${rule}</div><div class="step-why">${why}</div>${html}</li>`;
+  return (
+    '<ol class="steps">' +
+    lead(
+      'Beyond standard functions',
+      s.series
+        ? 'No combination of powers, exponentials, logarithms, trig functions, their inverses or the special functions (erf, Si, Ci, Ei, li) has this derivative. Near any point where the integrand is smooth it is still a power series, so the answer is written as one'
+        : 'No combination of powers, exponentials, logarithms, trig functions, their inverses or the special functions has this derivative, and the integrand has no power series nearby. The answer is the area function itself, which the graph draws',
+      s.series
+        ? ''
+        : `<div class="step-work"><span>${astHTML(r.symSrc)}</span><span>= ${astHTML(r.symArea)} + <i>C</i></span></div>`,
+    ) +
+    (s.series
+      ? lead(
+          'Expand the integrand',
+          `Write it as a power series about ${where}${s.series.exact ? '' : ', with coefficients to four figures'}`,
+          `<div class="step-work"><span>${astHTML(f)}</span><span>= ${astHTML(s.series.integrand)} + ⋯</span></div>`,
+        ) +
+        lead(
+          'Integrate term by term',
+          `Each <span class="mi">${astHTML({ k: 'binary', op: '^', a: v, b: { k: 'name', n: 'n' } })}</span> becomes <span class="mi">` +
+            astHTML({
+              k: 'binary',
+              op: '/',
+              a: {
+                k: 'binary',
+                op: '^',
+                a: v,
+                b: { k: 'binary', op: '+', a: { k: 'name', n: 'n' }, b: { k: 'num', v: 1 } },
+              },
+              b: { k: 'binary', op: '+', a: { k: 'name', n: 'n' }, b: { k: 'num', v: 1 } },
+            }) +
+            '</span>',
+          `<div class="step-work"><span>${astHTML(r.symSrc)}</span><span>≈ ${astHTML(r.series)} + ⋯${
+            r.symIndef ? ' + <i>C</i>' : ''
+          }</span></div>`,
+        )
+      : '') +
+    '</ol>' +
+    `<p class="steps-note">${
+      (r.graphFrom || 0) === at
+        ? `The constant is chosen so the answer is 0 at ${where}. The graph shows that same function, the area from ${astHTML(c)}, found numerically.`
+        : `The graph shows the area from ${astHTML({ k: 'num', v: r.graphFrom || 0 })}, found numerically. It differs from the series by a constant, which the + <i>C</i> absorbs.`
+    }</p>`
+  );
+}
+/* The working opens in a sheet beside the list rather than inside the row: a list row is too narrow for
+   maths at a size that reads without zooming. One row's steps are open at a time, and they follow its edits. */
+let sheet = null,
+  sheetRow = null;
+function closeSteps() {
+  const r = sheetRow;
+  if (!r) return;
+  sheetRow = null;
+  sheet.hidden = true;
+  sheet.dataset.k = '';
+  stepsCard(r);
+}
+function stepsSheet() {
+  if (sheet) return sheet;
+  sheet = document.createElement('section');
+  sheet.className = 'steps-sheet';
+  sheet.hidden = true;
+  sheet.setAttribute('aria-label', 'Working');
+  sheet.innerHTML =
+    '<div class="ss-bar"><span class="ss-kicker">Steps</span><button class="ss-close" aria-label="Close steps">' +
+    '<svg viewBox="0 0 24 24"><path d="M6 6l12 12M18 6L6 18"/></svg></button></div><div class="ss-scroll"></div>';
+  sheet.querySelector('.ss-close').onclick = closeSteps;
+  document.addEventListener('keydown', e => {
+    if (e.key === 'Escape' && sheetRow && (sheet.contains(e.target) || e.target === document.body))
+      closeSteps();
+  });
+  document.body.append(sheet);
+  return sheet;
+}
+// A differential equation's working: equations line under line, the integrals it needed worked in between.
+function odeSheet(r) {
+  const id = JSON.stringify(r.symEq),
+    el = stepsSheet(),
+    shown = id + '|' + r.id;
+  el.hidden = false;
+  if (el.dataset.k === shown) return;
+  el.dataset.k = shown;
+  let s = null;
+  try {
+    s = odeSteps(r.symEq, S.env);
+  } catch {
+    // Shown as no working below.
+  }
+  const lines = xs =>
+      xs?.length ? `<div class="step-work">${xs.map(e => `<span>${astHTML(e)}</span>`).join('')}</div>` : '',
+    scroll = el.querySelector('.ss-scroll');
+  scroll.innerHTML = !s
+    ? '<p class="steps-note">No working to show for this one.</p>'
+    : `<div class="ss-title"><span class="ss-q">${astHTML(s.question)}</span><span class="ss-a">${astHTML(s.answer)}</span></div>` +
+      '<ol class="steps">' +
+      s.steps
+        .map(
+          st =>
+            `<li class="step"><div class="step-rule">${escapeHTML(st.rule)}</div>` +
+            (st.why?.length ? `<div class="step-why">${say(st.why)}</div>` : '') +
+            lines(st.eqs) +
+            (st.kids?.length ? `<ol class="steps">${st.kids.map(stepHTML).join('')}</ol>` : '') +
+            lines(st.after) +
+            '</li>',
+        )
+        .join('') +
+      '</ol>';
+  scroll.scrollTop = 0;
+}
+function renderSheet(r) {
+  if (r.symEq) return odeSheet(r);
+  const src = r.symSrc,
+    id = JSON.stringify([src, r.sym, r.series]);
+  if (r.stepsKey !== id) {
+    r.stepsKey = id;
+    try {
+      r.steps = (src.n === 'deriv' ? derivativeSteps : integralSteps)(src, S.env);
+    } catch {
+      r.steps = null;
+    }
+    r.stepsMethod = 0;
+  }
+  const s = r.steps,
+    i = Math.min(r.stepsMethod || 0, Math.max(0, (s?.methods.length || 1) - 1)),
+    el = stepsSheet(),
+    shown = id + '|' + i + '|' + r.id;
+  el.hidden = false;
+  if (el.dataset.k === shown) return;
+  el.dataset.k = shown;
+  const scroll = el.querySelector('.ss-scroll'),
+    C = r.symIndef ? ' + <i>C</i>' : '',
+    m = s?.methods[i];
+  let html =
+    `<div class="ss-title"><span class="ss-q">${astHTML(src)}</span>` +
+    (r.sym || r.symArea
+      ? `<span class="ss-a">= ${astHTML(r.sym || r.symArea)}${C}</span>`
+      : `<span class="ss-a">≈ ${astHTML(r.series)} + ⋯${C}</span>`) +
+    '</div>';
+  if (s?.note) html += `<p class="steps-warn">${say(s.note)}</p>`;
+  if (!s) html += '<p class="steps-note">No working to show for this one.</p>';
+  else if (!m) html += seriesHTML(r, s);
+  else {
+    if (s.methods.length > 1)
+      html +=
+        '<div class="steps-tabs" role="tablist" aria-label="Methods">' +
+        s.methods
+          .map(
+            (x, j) =>
+              `<button role="tab" data-j="${j}" aria-selected="${j === i}"><b>${j + 1}</b>${say(x.label || [x.name])}</button>`,
+          )
+          .join('') +
+        '</div>';
+    html += `<ol class="steps">${stepHTML(m.tree)}</ol>`;
+    if (i && !s.definite && m.offset !== undefined)
+      html += `<p class="steps-note">${
+        Math.abs(m.offset) < 1e-9
+          ? 'Same function as method 1, written another way.'
+          : `Differs from method 1 by the constant ${fmt(m.offset).replace(/-/g, '−')}, which the + <i>C</i> absorbs.`
+      }</p>`;
+  }
+  scroll.innerHTML = html;
+  scroll.scrollTop = 0;
+  for (const b of scroll.querySelectorAll('.steps-tabs button'))
+    b.onclick = () => {
+      r.stepsMethod = +b.dataset.j;
+      renderSheet(r);
+    };
+}
+export function stepsCard(r) {
+  r.slEl?.querySelector('.steps-card')?.remove();
+  if (sheetRow && !S.rows.includes(sheetRow)) closeSteps();
+  const src = r.symSrc,
+    integral =
+      src?.k === 'call' &&
+      ((src.n === 'integral' && (r.sym || r.series || r.symArea)) || (src.n === 'deriv' && r.sym));
+  if (!r.slEl || r.err || !(integral || r.symEq)) {
+    if (sheetRow === r) closeSteps();
+    return;
+  }
+  const open = sheetRow === r,
+    box = document.createElement('div'),
+    toggle = document.createElement('button');
+  box.className = 'rcard steps-card';
+  toggle.className = 'steps-toggle';
+  toggle.setAttribute('aria-expanded', String(open));
+  toggle.innerHTML =
+    '<svg viewBox="0 0 24 24"><path d="M5 6h14M5 12h9M5 18h11"/></svg>' +
+    (open ? 'Hide steps' : 'Show steps');
+  toggle.onmousedown = e => e.preventDefault();
+  toggle.onclick = () => {
+    if (sheetRow === r) return closeSteps();
+    const was = sheetRow;
+    sheetRow = r;
+    if (was) stepsCard(was);
+    stepsCard(r);
+  };
+  box.append(toggle);
+  r.slEl.append(box);
+  if (open) renderSheet(r);
+}
+/* Cards for values that read better laid out: a matrix as a grid, colours as swatches, a t-test's numbers,
+   and a play button for tones. */
+export function valueCard(r) {
+  r.slEl?.querySelector('.vcard')?.remove();
+  const v = r.value;
+  if (!v || !r.slEl || r.err) return;
+  const box = document.createElement('div'),
+    items = [v].flat(),
+    num = x => fmt(x).replace(/-/g, '−');
+  box.className = 'rcard vcard';
+  if (items.every(t => t instanceof Tone)) {
+    const b = document.createElement('button'),
+      on = isPlaying(r);
+    b.className = 'tone-play';
+    b.setAttribute('aria-pressed', String(on));
+    b.innerHTML = on
+      ? '<svg viewBox="0 0 24 24"><rect x="7" y="6" width="3.5" height="12" rx="1"/><rect x="13.5" y="6" width="3.5" height="12" rx="1"/></svg>Stop'
+      : '<svg viewBox="0 0 24 24"><path d="M8 5.5v13l10.5-6.5z"/></svg>Play';
+    b.onclick = () => {
+      toggleTone(r);
+      valueCard(r);
+    };
+    box.append(b);
+  } else if (v instanceof Matrix) {
+    // A matrix written out in numbers is already on screen as typed.
+    if (/^\s*(?:[A-Za-z_]\w*\s*=)?[\s[\],\d.-]*$/.test(r.text)) return;
+    box.innerHTML = `<div class="mx-card" style="--cols:${v.n}">${v.rows
+      .flat()
+      .map(x => `<span>${num(x)}</span>`)
+      .join('')}</div>`;
+  } else if (items.every(c => c instanceof Color)) {
+    box.innerHTML = `<div class="swatches">${items
+      .slice(0, 24)
+      .map(c => `<span style="background:${c.hex}" title="${c}"></span>`)
+      .join('')}</div>`;
+  } else if (v instanceof TTest) {
+    box.innerHTML =
+      `<div class="rg">` +
+      [
+        ['t', num(v.score)],
+        ['df', num(v.df)],
+        ['p (≠)', num(v.p)],
+        ['p (<)', num(v.pleft)],
+        ['p (>)', num(v.pright)],
+      ]
+        .map(([n, x]) => `<span>${n} = ${x}</span>`)
+        .join('') +
+      '</div>';
+  } else return;
   r.slEl.append(box);
 }
 const blankCell = s => !String(s ?? '').trim();
@@ -683,7 +1023,6 @@ export function decorate(r) {
       ? r.text.replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/^\s*"/, '').replace(/"\s*$/, '')
       : pretty(r.text);
     r.preview.title = r.text;
-    r.preview.style.fontSize = Math.max(14, Math.min(23, 360 / Math.max(1, r.text.length))) + 'px';
   }
   if (r.inp) r.inp.title = r.text;
   if (r.label)
@@ -701,6 +1040,7 @@ export function decorate(r) {
         imp: 'Implicit curve',
         ineq: 'Region',
         surf: 'Surface',
+        shape: 'Shape',
       }[r.k?.type] || 'Expression') +
       ' / ' +
       String(S.rows.indexOf(r) + 1).padStart(2, '0');
@@ -715,9 +1055,6 @@ function ensureBlank() {
   S.rows.splice(end, 0, r);
   return r;
 }
-function countRows() {
-  $('#row-count').textContent = String(S.rows.filter(r => r.text.trim()).length).padStart(2, '0');
-}
 function renumber() {
   S.rows.forEach((r, i) => {
     const idx = r.inp?.closest('.row')?.querySelector('.idx');
@@ -725,7 +1062,6 @@ function renumber() {
   });
 }
 export function syncBlank() {
-  countRows();
   const r = ensureBlank();
   if (!r) return;
   mountRow(r);
@@ -756,7 +1092,6 @@ export function render() {
   S.rows = [...S.rows.filter(r => !r.helper), ...S.rows.filter(r => r.helper)];
   ensureBlank();
   $('#rows').replaceChildren();
-  countRows();
   const helpers = S.rows.filter(r => r.helper).length;
   if (helpers) $('#rows').append(helperGroup(helpers));
   S.rows.forEach(mountRow);
@@ -806,17 +1141,7 @@ function mountRow(r) {
   };
   dot.oncontextmenu = e => {
     e.preventDefault();
-    const c = document.createElement('input');
-    c.type = 'color';
-    c.value = r.col;
-    c.oninput = () => {
-      r.col = c.value;
-      decorate(r);
-      S.dirty = true;
-      kick();
-      saveSoon();
-    };
-    c.click();
+    colorMenu(r, dot);
   };
   dot.onclick = () => {
     r.off = !r.off;
@@ -839,6 +1164,84 @@ function mountRow(r) {
   else if (group) $('#rows').insertBefore(el, group);
   else $('#rows').append(el);
   bindCompletions(r);
+}
+/* The colour menu: the palette, any colour variables (C = rgb(255, 120, 0) colours a row and follows its
+   sliders, as in Desmos), or any colour at all from the system picker. */
+function colorMenu(r, anchor) {
+  document.querySelector('.col-menu')?.remove();
+  const menu = document.createElement('div'),
+    set = (col, colVar = null) => {
+      r.colVar = colVar;
+      if (col) r.col = col;
+      decorate(r);
+      S.dirty = true;
+      kick();
+      saveSoon();
+    },
+    close = () => {
+      menu.remove();
+      removeEventListener('pointerdown', outside, true);
+      removeEventListener('keydown', esc, true);
+    },
+    outside = e => !menu.contains(e.target) && close(),
+    esc = e => e.key === 'Escape' && close(),
+    swatch = (col, label, pressed, pick) => {
+      const b = document.createElement('button');
+      b.type = 'button';
+      b.className = 'col-swatch';
+      b.style.setProperty('--sw', col);
+      b.title = b.ariaLabel = label;
+      b.setAttribute('aria-pressed', String(pressed));
+      b.onclick = () => {
+        pick();
+        close();
+      };
+      return b;
+    },
+    section = (title, items) => {
+      if (!items.length) return;
+      const h = document.createElement('div'),
+        g = document.createElement('div');
+      h.className = 'col-head';
+      h.textContent = title;
+      g.className = 'col-grid';
+      g.append(...items);
+      menu.append(h, g);
+    };
+  menu.className = 'col-menu';
+  menu.setAttribute('role', 'dialog');
+  menu.ariaLabel = 'Curve colour';
+  section(
+    'Colour',
+    PAL.map(c => swatch(c, c, !r.colVar && c.toLowerCase() === r.col.toLowerCase(), () => set(c))),
+  );
+  section(
+    'From a variable',
+    colorVariables().map(([n, c]) => {
+      const b = swatch(c.hex, `${n} = ${c}`, r.colVar === n, () => set(c.hex, n));
+      b.classList.add('named');
+      b.textContent = n;
+      return b;
+    }),
+  );
+  const custom = document.createElement('label');
+  custom.className = 'col-custom';
+  custom.innerHTML = '<input type="color"> Custom…';
+  const input = custom.querySelector('input');
+  input.value = r.col;
+  input.oninput = () => set(input.value);
+  menu.append(custom);
+  const tip = document.createElement('p');
+  tip.className = 'col-tip';
+  tip.textContent = 'Define C = rgb(255, 120, 0) or hsv(30, 1, 1) to colour by a variable.';
+  if (!colorVariables().length) menu.append(tip);
+  document.body.append(menu);
+  const a = anchor.getBoundingClientRect();
+  menu.style.left = Math.min(innerWidth - menu.offsetWidth - 8, a.right + 8) + 'px';
+  menu.style.top = Math.max(8, Math.min(innerHeight - menu.offsetHeight - 8, a.top - 8)) + 'px';
+  addEventListener('pointerdown', outside, true);
+  addEventListener('keydown', esc, true);
+  menu.querySelector('button')?.focus();
 }
 export function add(text = '', after) {
   const end = mainCount();
@@ -867,6 +1270,25 @@ export function add(text = '', after) {
   if (isTableText(text)) focusTableCell(r, 0, 0);
   else r.inp.focus();
   return r;
+}
+// What the add menu's Table, Data + fit and Note start a row with.
+export const NEW = {
+  table: () => writeTable(emptyTable()),
+  data: () =>
+    writeTable({
+      cols: [
+        { h: 'x1', v: ['1', '2', '3', '4', '5'] },
+        { h: 'y1', v: ['2', '3.1', '5.2', '5.9', '8.1'] },
+      ],
+      fit: { type: 'linear', y: 1 },
+    }),
+  note: () => '"',
+};
+// "table" typed into a row turns that row into a table, where it stands.
+export function replaceRow(r, text) {
+  const i = S.rows.indexOf(r);
+  S.rows.splice(i, 1);
+  return add(text, i - 1);
 }
 export function del(i) {
   S.rows.splice(i, 1);
@@ -977,22 +1399,13 @@ export function initPanel() {
     e.preventDefault();
     S.rows.at(-1)?.inp?.focus();
   });
-  $('#tb').onclick = () =>
-    add(
-      writeTable({
-        cols: [
-          { h: 'x1', v: ['1', '2', '3', '4', '5'] },
-          { h: 'y1', v: ['2', '3.1', '5.2', '5.9', '8.1'] },
-        ],
-        fit: { type: 'linear', y: 1 },
-      }),
-    );
+  $('#tb').onclick = () => add(NEW.data());
   $('#add-fractal').onclick = () => {
     const r = add('fractal(');
     if (r) updateCompletions(r);
   };
-  $('#add-table').onclick = () => add(writeTable(emptyTable()));
-  $('#add-note').onclick = () => add('"');
+  $('#add-table').onclick = () => add(NEW.table());
+  $('#add-note').onclick = () => add(NEW.note());
   // Slider limits show while the equation or a limit field has focus. Removal waits a tick, so moving
   // between the two never hides the field that is about to receive focus.
   const editingLimits = el => el?.matches?.('.mq, .sl-lim input');

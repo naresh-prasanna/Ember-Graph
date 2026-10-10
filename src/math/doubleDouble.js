@@ -139,7 +139,9 @@ function ddNode(n, st) {
           return a.reduce((x, y) => (y[0] > x[0] || (y[0] === x[0] && y[1] > x[1]) ? y : x));
       }
       st.fz = true;
-      return [math[n.n](...a.map(x => x[0])), 0];
+      const v = math[n.n](...a.map(x => x[0]));
+      if (typeof v !== 'number') throw NODD;
+      return [v, 0];
     }
   }
   throw NODD;

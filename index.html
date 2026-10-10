@@ -24,6 +24,23 @@
           </svg>
           <div><strong>EMBER</strong></div>
         </div>
+        <div class="presets">
+          <button id="presets" aria-haspopup="true" aria-expanded="false" aria-controls="presets-menu">
+            <svg viewBox="0 0 24 24"><path d="M4 4h6v6H4zm10 0h6v6h-6zM4 14h6v6H4zm10 0h6v6h-6z" /></svg>
+            <span>Presets</span>
+            <svg class="caret" viewBox="0 0 24 24"><path d="m7 10 5 5 5-5" /></svg>
+          </button>
+          <div id="presets-menu" class="presets-menu" hidden>
+            <button data-scene="orbit" class="active">
+              <strong>Orbit</strong><small>Polar harmonics. One parameter, endless shapes.</small></button
+            ><button data-scene="waves">
+              <strong>Interference</strong
+              ><small>Two waves meet. Change a and watch them combine.</small></button
+            ><button data-scene="terrain">
+              <strong>Terrain</strong><small>A 3D surface and its height contours.</small>
+            </button>
+          </div>
+        </div>
         <nav class="mode-switch" aria-label="Workspace mode">
           <button id="explore" class="active" aria-pressed="true">Explore</button
           ><button id="present" aria-pressed="false">Present</button>
@@ -72,7 +89,19 @@
             title="Key points: roots, extrema, intersections"
             aria-pressed="true"
           >
-            ◎
+            ◎</button
+          ><button id="rp" aria-label="Replay drawing" title="Replay drawing">
+            <svg viewBox="0 0 24 24"><path d="M5 8a8 8 0 1 1-1 7M5 3v5h5" /></svg></button
+          ><button
+            id="drift"
+            aria-pressed="false"
+            aria-label="Drift the 3D camera"
+            title="Slowly orbit the 3D camera"
+          >
+            <svg viewBox="0 0 24 24">
+              <ellipse cx="12" cy="12" rx="9" ry="4" />
+              <path d="m17 6.5 2.5 1.8L17 10" />
+            </svg>
           </button>
         </div>
         <div class="legend">
@@ -87,9 +116,16 @@
       <aside>
         <div class="hd">
           <div>Expressions</div>
-          <small id="row-count"></small>
           <button id="more" aria-label="Add or tools" aria-haspopup="true" aria-expanded="false" title="Add">
             +
+          </button>
+          <button
+            id="hide-panel"
+            class="panel-toggle"
+            aria-label="Hide expression list"
+            title="Hide expression list"
+          >
+            <svg viewBox="0 0 24 24"><path d="m11 17-5-5 5-5m7 10-5-5 5-5" /></svg>
           </button>
         </div>
         <div class="panel-actions">
@@ -103,18 +139,46 @@
           </div>
         </div>
         <div id="rows"></div>
+        <button
+          id="keypad-toggle"
+          class="keypad-toggle"
+          aria-label="Keypad and functions"
+          title="Keypad and functions"
+          aria-expanded="false"
+          aria-controls="keypad"
+        >
+          <svg viewBox="0 0 24 24">
+            <rect x="3" y="6" width="18" height="12" rx="2" />
+            <path d="M7 10h.01M11 10h.01M15 10h.01M7 14h10" />
+          </svg>
+          <span>Functions</span>
+        </button>
+        <div
+          class="panel-resize"
+          role="separator"
+          aria-orientation="vertical"
+          title="Drag to resize · double-click to reset"
+        ></div>
       </aside>
-      <div class="bottom-bar">
-        <nav class="scenes" aria-label="Example scenes">
-          <button data-scene="orbit" class="active">Orbit</button
-          ><button data-scene="waves">Interference</button><button data-scene="terrain">Terrain</button>
-        </nav>
-        <div class="playback">
-          <button id="drift" aria-pressed="false" title="Slowly orbit the 3D camera">Drift</button
-          ><button id="rp" aria-label="Replay">
-            <svg viewBox="0 0 24 24"><path d="M5 8a8 8 0 1 1-1 7M5 3v5h5" /></svg><span>Replay</span>
-          </button>
+      <button
+        id="show-panel"
+        class="panel-toggle"
+        aria-label="Show expression list"
+        title="Show expression list"
+        tabindex="-1"
+      >
+        <svg viewBox="0 0 24 24"><path d="m13 17 5-5-5-5M6 17l5-5-5-5" /></svg>
+      </button>
+      <div id="keypad" class="keypad" hidden role="group" aria-label="Maths keypad">
+        <div class="kp-head">
+          <div class="kp-tabs" role="tablist">
+            <button type="button" role="tab" data-page="main" aria-selected="true">123</button>
+            <button type="button" role="tab" data-page="abc" aria-selected="false">ABC</button>
+            <button type="button" role="tab" data-page="fns" aria-selected="false">Functions</button>
+          </div>
+          <button type="button" class="kp-hide" aria-label="Hide keypad" title="Hide keypad"></button>
         </div>
+        <div class="kp-body"></div>
       </div>
       <div id="notice" class="notice" hidden role="status"></div>
     </div>

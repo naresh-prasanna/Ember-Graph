@@ -8,17 +8,12 @@ import { parts, splitTop } from '../math/parser.js';
 import { dseg, ix } from '../math/segments.js';
 import { cameraKick, unprojectPoint } from '../render/camera.js';
 import { kick } from '../render/renderer.js';
+import { keyPointsOf } from '../ui/keyPoints.js';
 
-function clk(px, py) {
-  const mi = S.marks.findIndex(m => Math.hypot(S.V.cx + m.x * S.V.s - px, S.V.cy - m.y * S.V.s - py) < 10);
-  if (mi >= 0) {
-    S.marks.splice(mi, 1);
-    kick();
-    return;
-  }
-  let best = null,
-    dist = 14;
-  for (const r of S.rows) {
+// The drawn curve closest to a screen point, if one passes within `dist` pixels.
+function nearestCurve(px, py, dist, rows = S.rows) {
+  let best = null;
+  for (const r of rows) {
     if (r.off || r.err || !r.g) continue;
     for (const a of r.g.L)
       for (let i = 0; i + 3 < a.length; i += 2) {
@@ -34,6 +29,68 @@ function clk(px, py) {
         }
       }
   }
+  return best;
+}
+function nearestDot(px, py, dist, rows = S.rows.filter(r => r.k?.complex)) {
+  let best = null;
+  for (const r of rows) {
+    if (r.off || r.err) continue;
+    for (const { p } of r.g?.pts || []) {
+      const d = Math.hypot(p[0] - px, p[1] - py);
+      if (d < dist) [dist, best] = [d, { r, p }];
+    }
+  }
+  return best;
+}
+const graphOfX = k => !!k && (k.type === 'cart' || k.type === 'function' || (k.type === 'lreg' && !!k.c));
+// y on a graph of x, or null where the curve is undefined or restricted away.
+function curveY(k, x) {
+  const scope = k.type === 'function' ? { [k.param]: x } : { x, ...(k.xKey && { [k.xKey]: x }) };
+  try {
+    const y = val(k.c, scope);
+    return typeof y === 'number' && Number.isFinite(y) && (!k.filter || val(k.filter, { ...scope, y }))
+      ? y
+      : null;
+  } catch {
+    return null;
+  }
+}
+/* Trace, as in Desmos: press on a curve and drag, and a point rides along it, staying at the point of the
+   curve nearest the pointer. Going by the pointer's x alone sends it racing up a steep curve ahead of the
+   hand. On a graph of x, y is then worked out exactly at that x. Key points within reach catch it, so a
+   maximum or an intercept is easy to land on. */
+function traceAt(r, px, py) {
+  if (!S.rows.includes(r) || r.off || r.err) return null;
+  // On the Argand plane only the numbers themselves are worth reading, not points along their arrows.
+  if (r.k?.complex) {
+    const hit = nearestDot(px, py, Infinity, [r]);
+    return hit && { r, x: (hit.p[0] - S.V.cx) / S.V.s, y: (S.V.cy - hit.p[1]) / S.V.s, fixed: true };
+  }
+  for (const p of keyPointsOf(r.id))
+    if (Math.hypot(S.V.cx + p.x * S.V.s - px, S.V.cy - p.y * S.V.s - py) < 9)
+      return { r, x: p.x, y: p.y, key: p.t };
+  const hit = nearestCurve(px, py, Infinity, [r]);
+  if (!hit) return null;
+  const x = (hit.p[0] - S.V.cx) / S.V.s,
+    y = graphOfX(r.k) ? curveY(r.k, x) : null;
+  return y !== null ? { r, x, y } : { r, x, y: (S.V.cy - hit.p[1]) / S.V.s, fixed: true };
+}
+// Where the trace point is now: on a graph of x it stays at its x and follows the curve as sliders move it.
+export function liveTrace() {
+  const t = S.trace;
+  if (!t || !S.rows.includes(t.r) || t.r.off || t.r.err) return null;
+  if (t.key || t.fixed || !graphOfX(t.r.k)) return t;
+  const y = curveY(t.r.k, t.x);
+  return y === null ? null : { ...t, y };
+}
+function clk(px, py) {
+  const mi = S.marks.findIndex(m => Math.hypot(S.V.cx + m.x * S.V.s - px, S.V.cy - m.y * S.V.s - py) < 10);
+  if (mi >= 0) {
+    S.marks.splice(mi, 1);
+    kick();
+    return;
+  }
+  const best = nearestCurve(px, py, 14);
   if (!best) return;
   let P = best.p,
     snap = 12;
@@ -137,7 +194,7 @@ function hitPoint(p) {
     if (r.off || r.err || !r.g) continue;
     if (!['pt', 'pts'].includes(r.k?.type)) continue;
     for (const q of r.g.pts)
-      if (Math.hypot(q.p[0] - p[0], q.p[1] - p[1]) < 16)
+      if (q.copy === undefined && Math.hypot(q.p[0] - p[0], q.p[1] - p[1]) < 16)
         return {
           r,
           index: q.index,
@@ -176,8 +233,11 @@ function endPointer(e) {
     !gesture.multi &&
     !S.drag &&
     !S.mode3
-  )
+  ) {
+    // A press that never moved is a click: it pins a mark rather than leaving a trace behind.
+    S.trace = null;
     clk(...local(e));
+  }
   pointers.delete(e.pointerId);
   S.drag = null;
   if (!pointers.size) {
@@ -203,8 +263,18 @@ export function initInteraction() {
         multi: false,
       };
       S.drag = S.mode3 ? null : hitPoint(p);
+      // On a curve the press traces it; anywhere else it pans, and lets go of the last trace.
+      const on = !S.drag && !S.mode3 && (nearestDot(...p, 12) || nearestCurve(...p, 10));
+      S.trace = on ? traceAt(on.r, ...p) : null;
+      gesture.trace = S.trace?.r || null;
+      if (gesture.trace) {
+        cv.style.cursor = 'crosshair';
+        kick();
+        return;
+      }
     } else {
       gesture.multi = true;
+      gesture.trace = null;
       S.drag = null;
     }
     S.fast = true;
@@ -218,6 +288,13 @@ export function initInteraction() {
     const raw = pointers.get(e.pointerId);
     if (!raw) return;
     const p = unprojectPoint(raw);
+    if (gesture.trace && pointers.size === 1) {
+      gesture.moved += Math.hypot(n[0] - p[0], n[1] - p[1]);
+      S.trace = traceAt(gesture.trace, ...n) || S.trace;
+      pointers.set(e.pointerId, rawLocal(e));
+      kick();
+      return;
+    }
     if (!S.drag) cameraKick(n[0] - p[0], n[1] - p[1]);
     gesture.moved += Math.hypot(n[0] - p[0], n[1] - p[1]);
     if (pointers.size === 2) {

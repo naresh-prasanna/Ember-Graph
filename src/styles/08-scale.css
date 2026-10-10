@@ -1,0 +1,271 @@
+/* Desmos-scale controls: maths a fixed, readable size and buttons big enough to hit without aiming. */
+
+/* Expression list */
+.equation-display,
+.mq {
+  font-size: 22px;
+}
+.mq > .blk.e:after,
+.equation-display:empty:before {
+  font: 15px var(--mono);
+}
+.hd {
+  height: 52px;
+  padding: 0 10px 0 18px;
+  font-size: 15px;
+  color: #b9b1a6;
+}
+#more {
+  width: 38px;
+  height: 38px;
+  font-size: 28px;
+}
+.panel-toggle svg {
+  width: 20px;
+  height: 20px;
+}
+@media (min-width: 721px) {
+  .hd .panel-toggle {
+    width: 38px;
+    height: 38px;
+  }
+  #show-panel {
+    width: 42px;
+    height: 42px;
+  }
+}
+.gut {
+  width: 46px;
+  gap: 8px;
+  padding-top: 11px;
+}
+.idx {
+  font-size: 11px;
+}
+.dot {
+  width: 22px;
+  height: 22px;
+}
+.dot:after {
+  inset: 6px;
+}
+.col {
+  padding: 12px 8px 12px 16px;
+}
+.x {
+  width: 34px;
+  height: 34px;
+  margin: 9px 6px 0 0;
+  padding: 0;
+  font-size: 24px;
+  line-height: 1;
+  border-radius: 7px;
+}
+.x:hover {
+  color: var(--hot);
+}
+.err {
+  font-size: 12px;
+}
+.err.answer {
+  font-size: 17px;
+}
+.sl {
+  gap: 11px;
+  margin-top: 14px;
+  font-size: 12px;
+}
+.sl input {
+  height: 4px;
+}
+.sl input::-webkit-slider-thumb {
+  width: 16px;
+  height: 16px;
+  box-shadow:
+    0 0 0 4px #ff783b22,
+    0 0 12px #ff783b40;
+}
+.sl input::-moz-range-thumb {
+  width: 16px;
+  height: 16px;
+}
+.sl b {
+  min-width: 36px;
+}
+.sl button {
+  font-size: 11px;
+  padding: 4px 6px;
+}
+.sl-lim {
+  font-size: 18px;
+}
+.sl-lim input {
+  width: 66px;
+  padding: 7px 8px;
+  font-size: 14px;
+}
+
+/* Top bar */
+.top-actions {
+  gap: 12px;
+}
+.top-actions button {
+  font-size: 14px;
+}
+.top-actions #sh {
+  padding: 10px 18px;
+}
+.top-actions #help {
+  width: 38px;
+  height: 38px;
+  padding: 0;
+  font-size: 18px;
+}
+
+/* Presets menu */
+.presets {
+  position: relative;
+  margin: 0 auto 0 32px;
+}
+#presets {
+  display: flex;
+  align-items: center;
+  gap: 9px;
+  height: 40px;
+  padding: 0 12px 0 13px;
+  font-size: 14px;
+  color: #cbbfae;
+  border-color: #ffffff14;
+}
+#presets svg {
+  width: 18px;
+  height: 18px;
+}
+#presets .caret {
+  width: 16px;
+  height: 16px;
+  color: var(--dim);
+  transition: transform 160ms var(--panel-ease);
+}
+#presets[aria-expanded='true'] {
+  color: var(--hot);
+  border-color: #ff783b40;
+  background: #ff783b12;
+}
+#presets[aria-expanded='true'] .caret {
+  transform: rotate(180deg);
+}
+.presets-menu {
+  position: absolute;
+  z-index: 20;
+  top: calc(100% + 8px);
+  left: 0;
+  display: grid;
+  gap: 2px;
+  width: 300px;
+  padding: 6px;
+  background: rgba(18, 17, 16, 0.98);
+  border: 1px solid #ffffff16;
+  border-radius: 12px;
+  box-shadow:
+    0 20px 60px #000b,
+    0 0 30px #ff783b0a;
+  transform-origin: top left;
+  animation: presets-in 150ms var(--panel-ease);
+}
+.presets-menu[hidden] {
+  display: none;
+}
+@keyframes presets-in {
+  from {
+    opacity: 0;
+    transform: scale(0.97) translateY(-4px);
+  }
+}
+.presets-menu button {
+  display: grid;
+  gap: 4px;
+  padding: 11px 13px;
+  text-align: left;
+  border: 0;
+  border-radius: 8px;
+}
+.presets-menu strong {
+  font-size: 15px;
+  font-weight: 500;
+  color: #e6dccf;
+}
+.presets-menu small {
+  font-size: 12.5px;
+  line-height: 1.4;
+  color: var(--dim);
+}
+.presets-menu button:hover,
+.presets-menu button:focus-visible {
+  background: #ffffff0a;
+  outline: none;
+}
+.presets-menu button.active {
+  background: #ff783b12;
+  box-shadow: inset 2px 0 var(--em);
+}
+.presets-menu button.active strong {
+  color: var(--hot);
+}
+
+/* Graph tools */
+#tools {
+  padding: 5px;
+  gap: 2px;
+}
+#tools button {
+  width: 42px;
+  height: 42px;
+  font-size: 22px;
+}
+#tools button svg {
+  width: 20px;
+  height: 20px;
+}
+#tools #d3 {
+  font-size: 13px;
+}
+#tools #rp {
+  justify-content: center;
+}
+#tools #drift {
+  display: none !important;
+}
+body.is3d #tools #drift {
+  display: grid !important;
+  place-items: center;
+}
+#co {
+  font-size: 12px;
+}
+
+@media (max-width: 720px) {
+  .presets {
+    position: static;
+    margin-left: 14px;
+  }
+  #presets span,
+  #presets .caret {
+    display: none;
+  }
+  #presets {
+    width: 40px;
+    padding: 0;
+    justify-content: center;
+  }
+  .presets-menu {
+    top: calc(100% - 4px);
+    right: 0;
+    width: auto;
+  }
+  #tools button {
+    width: 36px;
+    height: 36px;
+    font-size: 19px;
+  }
+}

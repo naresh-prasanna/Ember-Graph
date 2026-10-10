@@ -21,6 +21,7 @@ export function state() {
       col: r.col,
       off: r.off,
       ...(r.helper ? { helper: true } : {}),
+      ...(r.colVar ? { colVar: r.colVar } : {}),
     })),
     vars: {
       ...S.vars,
@@ -62,9 +63,11 @@ export function validateState(o) {
       throw Error('Invalid expression');
     if (x.col !== undefined && !/^#[0-9a-f]{6}$/i.test(x.col)) throw Error('Invalid curve colour');
     if (x.off !== undefined && typeof x.off !== 'boolean') throw Error('Invalid visibility flag');
+    if (x.colVar !== undefined && !/^[a-zA-Z_]\w*$/.test(x.colVar)) throw Error('Invalid colour variable');
     return {
       text: x.text,
       col: x.col,
+      colVar: x.colVar,
       off: !!x.off,
       helper: x.helper === true && !!x.text.trim(),
     };
@@ -111,9 +114,11 @@ export function validateState(o) {
   const ranges = nullObj();
   if (o.ranges && typeof o.ranges === 'object' && !Array.isArray(o.ranges))
     for (const [n, q] of Object.entries(o.ranges)) {
-      const step = q?.step ?? 0;
-      if (/^[a-zA-Z_]\w*$/.test(n) && !reserved(n) && [q?.min, q?.max, step].every(Number.isFinite))
-        if (q.min < q.max && step >= 0) ranges[n] = { min: q.min, max: q.max, step };
+      // A range saved without a step uses the default for its width.
+      const step = q?.step;
+      if (/^[a-zA-Z_]\w*$/.test(n) && !reserved(n) && [q?.min, q?.max, step ?? 0].every(Number.isFinite))
+        if (q.min < q.max && !(step < 0))
+          ranges[n] = step === undefined ? { min: q.min, max: q.max } : { min: q.min, max: q.max, step };
     }
   // Older graphs kept limits in the text as n = 12 {0 <= n <= 12}; move them to the slider.
   for (const row of r) {

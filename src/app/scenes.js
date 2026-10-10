@@ -4,6 +4,7 @@ import { $ } from '../core/dom.js';
 import { FRACTALS } from '../math/fractals.js';
 import { camera, cameraKick } from '../render/camera.js';
 import { kick } from '../render/renderer.js';
+import { panelWidth, syncInert } from '../ui/sidePanel.js';
 
 export function updateStatus() {
   const fr = S.rows.find(r => !r.off && r.k?.type === 'fractal');
@@ -128,9 +129,10 @@ export function frameScene() {
     return;
   }
   const compact = S.W <= 720,
-    cx = compact || S.presentation ? S.W / 2 : (S.W + (S.W > 1050 ? 320 : 270)) / 2,
+    left = panelWidth(),
+    cx = (S.W + left) / 2,
     cy = S.H * (compact ? 0.55 : 0.56),
-    roomW = compact || S.presentation ? S.W - 100 : S.W - 460;
+    roomW = S.W - left - 100;
   S.V = {
     cx,
     cy,
@@ -140,10 +142,7 @@ export function frameScene() {
   S.C = {
     y: 0.55,
     p: 0.7,
-    s: Math.max(
-      17,
-      Math.min((S.W - (compact ? 40 : S.presentation ? 80 : 350)) / 17, (S.H - (compact ? 90 : 160)) / 12),
-    ),
+    s: Math.max(17, Math.min((S.W - left - (compact ? 40 : 80)) / 17, (S.H - (compact ? 90 : 160)) / 12)),
   };
   S.marks = [];
   S.dirty = true;
@@ -178,7 +177,7 @@ function setPresentation(value) {
   if (S.presentation === value) return;
   S.presentation = value;
   document.body.classList.toggle('present', value);
-  $('aside').inert = value;
+  syncInert();
   $('#explore').classList.toggle('active', !value);
   $('#present').classList.toggle('active', value);
   $('#explore').setAttribute('aria-pressed', String(!value));
@@ -193,7 +192,7 @@ function setPresentation(value) {
 // Fits a world-space box into the part of the screen the expression list leaves free.
 export function frameBounds(x0, x1, y0, y1) {
   const compact = S.W <= 720 || S.presentation,
-    left = compact ? 0 : S.W >= 1600 ? 360 : S.W <= 1050 ? 290 : 340,
+    left = panelWidth(),
     roomW = S.W - left - (compact ? 40 : 140),
     roomH = compact ? S.H * 0.42 : S.H - 200,
     s = Math.max(2, Math.min(2e5, roomW / (x1 - x0 || 1), roomH / (y1 - y0 || 1)));
@@ -211,9 +210,10 @@ export function frameBounds(x0, x1, y0, y1) {
 export function frameFractal() {
   S.mode3 = false;
   const compact = S.W < 721 || S.presentation,
-    center = compact ? S.W / 2 : (S.W + 320) / 2,
+    left = panelWidth(),
+    center = (S.W + left) / 2,
     family = S.rows.find(r => r.k?.type === 'fractal' && !r.off)?.k.family,
-    s = Math.max(25, Math.min((compact ? S.W - 40 : S.W - 420) / 3.6, (S.H - 170) / 3));
+    s = Math.max(25, Math.min((S.W - left - (compact ? 40 : 100)) / 3.6, (S.H - 170) / 3));
   S.V = {
     cx: center + (family === 'mandelbrot' || family === 'burningship' ? 0.5 * s : 0),
     cy: S.H * 0.55 + (family === 'burningship' ? -0.35 * s : 0),
@@ -225,8 +225,43 @@ export function frameFractal() {
   saveSoon();
 }
 
+function presetsMenu(open, focusToggle = false) {
+  const menu = $('#presets-menu');
+  if (open === !menu.hidden) return;
+  menu.hidden = !open;
+  $('#presets').setAttribute('aria-expanded', String(open));
+  if (open) (menu.querySelector('.active') || menu.querySelector('button')).focus();
+  else if (focusToggle) $('#presets').focus();
+}
 export function initScenes() {
-  document.querySelectorAll('[data-scene]').forEach(b => (b.onclick = () => chooseScene(b.dataset.scene)));
+  document.querySelectorAll('[data-scene]').forEach(
+    b =>
+      (b.onclick = () => {
+        presetsMenu(false);
+        chooseScene(b.dataset.scene);
+      }),
+  );
+  $('#presets').onclick = () => presetsMenu($('#presets-menu').hidden);
+  $('#presets-menu').onkeydown = e => {
+    const items = [...$('#presets-menu').querySelectorAll('button')],
+      i = items.indexOf(document.activeElement);
+    if (e.key === 'ArrowDown' || e.key === 'ArrowUp') {
+      e.preventDefault();
+      items[(i + (e.key === 'ArrowDown' ? 1 : items.length - 1)) % items.length].focus();
+    }
+  };
+  document.addEventListener('pointerdown', e => {
+    if (!e.target.closest('.presets')) presetsMenu(false);
+  });
+  document.addEventListener('keydown', e => {
+    if (e.key === 'Escape' && !$('#presets-menu').hidden) {
+      e.stopPropagation();
+      presetsMenu(false, true);
+    }
+  });
+  document.addEventListener('focusin', e => {
+    if (!e.target.closest('.presets')) presetsMenu(false);
+  });
   $('#explore').onclick = () => setPresentation(false);
   $('#present').onclick = () => setPresentation(true);
   document.addEventListener('keydown', e => {

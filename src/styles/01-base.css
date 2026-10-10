@@ -1096,3 +1096,47 @@ dialog img {
     animation: none !important;
   }
 }
+
+/* Debug overlay (` key) */
+.fps {
+  position: fixed;
+  z-index: 60;
+  top: 70px;
+  right: 84px;
+  padding: 9px 11px 8px;
+  font: 11px/1.55 var(--mono);
+  color: #cfc6ba;
+  background: #0b0c0de6;
+  border: 1px solid #ffffff16;
+  border-radius: 8px;
+  pointer-events: none;
+  font-variant-numeric: tabular-nums;
+}
+.fps[hidden] {
+  display: none;
+}
+.fps span {
+  display: block;
+  white-space: pre;
+}
+.fps b {
+  font-size: 18px;
+  font-weight: 600;
+}
+.fps .ok {
+  color: #9be08f;
+}
+.fps .meh {
+  color: #ffb347;
+}
+.fps .bad {
+  color: #ff5a4a;
+}
+.fps canvas {
+  position: static;
+  inset: auto;
+  display: block;
+  width: 200px;
+  height: 44px;
+  margin-top: 6px;
+}

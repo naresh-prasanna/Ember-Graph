@@ -1,5 +1,6 @@
 import { local } from '../app/interaction.js';
-import { parameterBounds, val } from '../app/model.js';
+import { parameterBounds, rowCopies, val } from '../app/model.js';
+import { BRANCH } from '../math/parser.js';
 import { S } from '../app/state.js';
 import { $, ctx, cv } from '../core/dom.js';
 import { fmt } from '../math/format.js';
@@ -17,34 +18,22 @@ let kpShow = true,
 function keyPointCurves() {
   return S.rows
     .filter(r => !r.off && !r.err && r.k && (r.k.type === 'cart' || r.k.type === 'function') && !r.k.reg)
-    .map(r => {
+    .flatMap(r => {
       const k = r.k,
-        fn = k.type === 'function';
-      return {
-        id: r.id,
-        c: r.col,
-        f: x => {
-          const y = val(
-            k.c,
-            fn
-              ? {
-                  [k.param]: x,
-                }
-              : {
-                  x,
-                },
-          );
-          if (
-            k.filter &&
-            !val(k.filter, {
-              x,
-              y,
-            })
-          )
-            return NaN;
-          return y;
-        },
-      };
+        fn = k.type === 'function',
+        n = rowCopies(r);
+      return Array.from({ length: n === undefined ? 1 : Math.min(n, 20) }, (_, b) => {
+        const branch = n === undefined ? {} : { [BRANCH]: b };
+        return {
+          id: r.id,
+          c: r.col,
+          f: x => {
+            const y = val(k.c, fn ? { [k.param]: x, ...branch } : { x, ...branch });
+            if (k.filter && !val(k.filter, { x, y, ...branch })) return NaN;
+            return y;
+          },
+        };
+      });
     });
 }
 function refreshKeyPoints() {
@@ -72,7 +61,15 @@ function refreshKeyPoints() {
       y1 = S.V.cy / S.V.s,
       y0 = (S.V.cy - S.H) / S.V.s;
     for (const r of S.rows) {
-      if (r.off || r.err || !r.k || !r.g || (r.k.type !== 'imp' && r.k.type !== 'cartY')) continue;
+      if (
+        r.off ||
+        r.err ||
+        !r.k ||
+        !r.g ||
+        (r.k.type !== 'imp' && r.k.type !== 'cartY') ||
+        rowCopies(r) !== undefined
+      )
+        continue;
       const k = r.k,
         F =
           k.type === 'imp'
@@ -98,7 +95,15 @@ function refreshKeyPoints() {
     }
   } catch {}
   for (const r of S.rows) {
-    if (r.off || r.err || !r.k || !r.g || (r.k.type !== 'par' && r.k.type !== 'polar')) continue;
+    if (
+      r.off ||
+      r.err ||
+      !r.k ||
+      !r.g ||
+      (r.k.type !== 'par' && r.k.type !== 'polar') ||
+      rowCopies(r) !== undefined
+    )
+      continue;
     try {
       const k = r.k,
         polar = k.type === 'polar',
@@ -120,6 +125,8 @@ function refreshKeyPoints() {
     } catch {}
   }
 }
+// The key points last found on one row, for a trace to snap to.
+export const keyPointsOf = id => (kpShow ? kpPts.filter(p => [].concat(p.id).includes(id)) : []);
 const kpX = p => S.V.cx + p.x * S.V.s,
   kpY = p => S.V.cy - p.y * S.V.s;
 function visibleKeyPoints() {

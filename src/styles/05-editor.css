@@ -43,6 +43,28 @@
 .mq .gh {
   opacity: 0.32;
 }
+/* log's empty base reads 10, the value it stands for. */
+.mq .blk.e[data-ghost] {
+  background: none;
+  vertical-align: -0.28em;
+  min-height: 0;
+}
+.mq .blk.e[data-ghost]:before {
+  content: attr(data-ghost);
+  opacity: 0.38;
+}
+.mq .bo-lims > .blk.e {
+  min-width: 0.9em;
+  min-height: 0.9em;
+}
+/* The arguments still to come in tone( … ), normaldist( … ) and the rest. */
+.mq .args-hint {
+  margin-left: 0.12em;
+  font: italic 0.66em var(--sans);
+  color: var(--dim);
+  opacity: 0.8;
+  pointer-events: none;
+}
 .mq .frac > .blk {
   display: block;
 }
@@ -67,6 +89,19 @@
   vertical-align: text-bottom;
   margin: 0 -0.8px;
   animation: mqblink 1s steps(1) infinite;
+}
+/* Italic letters lean past their box, so the caret after one moves clear of the glyph without shifting the text. */
+.mq .v + .cur {
+  margin: 0 calc(-0.14em - 0.8px) 0 calc(0.14em - 0.8px);
+}
+/* Ctrl+A selects the whole expression. */
+.mq.all > .blk {
+  background: #ff783b38;
+  border-radius: 3px;
+  box-shadow: 0 0 0 2px #ff783b38;
+}
+.mq.all .cur {
+  display: none;
 }
 @keyframes mqblink {
   50% {

@@ -22,6 +22,83 @@
     var(--rs-hook) no-repeat 0 100%/13px 12px,
     var(--rs-stem) no-repeat 0 0/100% 100%;
 }
+/* A box not filled in yet, matching the editor's empty slot. */
+.slot {
+  display: inline-block;
+  min-width: 0.55em;
+  height: 0.9em;
+  vertical-align: middle;
+  background: rgba(255, 255, 255, 0.08);
+  border-radius: 2px;
+}
+/* ∫ with its bounds to the right, Σ and ∏ with theirs above and below. */
+.bigop {
+  display: inline-flex;
+  align-items: center;
+  vertical-align: middle;
+  margin: 0 2px;
+  white-space: nowrap;
+}
+.bo-lims {
+  display: inline-flex;
+  flex-direction: column;
+  align-items: center;
+  line-height: 1.1;
+}
+.bo-lims > :not(.bo-sym) {
+  font-size: 0.6em;
+  min-width: 0.6em;
+  text-align: center;
+}
+.bo-sym {
+  font-size: 1.45em;
+  line-height: 1;
+}
+.bigop.int > .bo-sym {
+  font-size: 1.7em;
+  margin-right: -0.05em;
+}
+.bigop.int > .bo-lims {
+  align-self: stretch;
+  align-items: flex-start;
+  justify-content: space-between;
+  margin-right: 0.2em;
+  padding: 0.05em 0;
+}
+.bo-body {
+  margin-left: 0.15em;
+}
+.bo-d {
+  margin-left: 0.2em;
+  font-style: normal;
+}
+/* [[1, 2], [3, 4]] as a bracketed grid. */
+.mx {
+  display: inline-grid;
+  grid-template-columns: repeat(var(--cols), auto);
+  gap: 1px 12px;
+  margin: 0 3px;
+  padding: 1px 7px;
+  vertical-align: middle;
+  border-inline: 1.5px solid currentColor;
+  border-radius: 3px;
+  text-align: center;
+  line-height: 1.25;
+}
+.kw {
+  margin: 0 0.3em;
+  font-style: normal;
+  font-family: var(--sans);
+  font-size: 0.82em;
+  color: var(--dim);
+}
+/* The index tucks into the root's hook: ³√x. */
+.rad > .rad-n {
+  align-self: flex-start;
+  margin: 0.05em -7px 0 0;
+  font-size: 0.62em;
+  line-height: 1;
+}
 .rad > .radc {
   border-top: 1.5px solid currentColor;
   margin-top: 3px;
