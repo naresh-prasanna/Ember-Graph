@@ -457,5 +457,135 @@ export const normalize = s =>
     .replace(/≠/g, '!=')
     .replace(/\*\*/g, '^');
 
+/* d/dx(…), ∫ … dx, ∫_a^b … dx and Σ_(n=1)^(10) … as people write them in text, rewritten to the
+   deriv(…, x), integral(…) and sum(…) the editor saves, so pasted, shared and typed text read the same as the
+   editor. A body without brackets runs on to the next =, comma, brace or closing bracket, as it does in the
+   editor. */
+const STOP = /[=<>,;{}\])≤≥≠]/;
+function group(s, i) {
+  const open = s[i];
+  if (open !== '(' && open !== '{') return null;
+  const close = open === '(' ? ')' : '}';
+  for (let j = i + 1, depth = 1; j < s.length; j++) {
+    if (s[j] === open) depth++;
+    else if (s[j] === close && !--depth) return [s.slice(i + 1, j), j + 1];
+  }
+  return null;
+}
+// What d/dx or Σ applies to: a bracket, or everything up to a stop.
+function body(s, i) {
+  while (s[i] === ' ') i++;
+  if (s[i] === '(') {
+    const g = group(s, i);
+    if (g) return g;
+  }
+  let j = i;
+  for (let depth = 0; j < s.length; j++) {
+    if ('([{'.includes(s[j])) depth++;
+    else if (depth && ')]}'.includes(s[j])) depth--;
+    else if (!depth && (STOP.test(s[j]) || /^ (with|for|and|or)\b/.test(s.slice(j)))) break;
+  }
+  return j > i ? [s.slice(i, j).trim(), j] : null;
+}
+// A bound after _ or ^: {…}, (…), or one number or name.
+function bound(s, i, mark) {
+  if (s[i] !== mark) return null;
+  const g = group(s, i + 1);
+  if (g) return g;
+  const m = s.slice(i + 1).match(mark === '_' ? /^[^\s^]+/ : /^-?[A-Za-z0-9.πθ∞]+/);
+  return m ? [m[0], i + 1 + m[0].length] : null;
+}
+// |x| as abs(x). A bar opens unless it follows something it can close, so ||x| − 1| nests.
+function bars(s) {
+  let out = '',
+    open = 0;
+  for (let i = 0; i < s.length; i++) {
+    if (s[i] !== '|') {
+      out += s[i];
+      continue;
+    }
+    const before = out.trimEnd().at(-1) || '';
+    if (open && /[\w.)\]}!′'πθ]/.test(before) && !out.trimEnd().endsWith('abs(')) {
+      out += ')';
+      open--;
+    } else {
+      out += 'abs(';
+      open++;
+    }
+  }
+  return open ? s : out;
+}
+export function textNotation(s) {
+  if (s.includes('|')) s = bars(s);
+  // == is how programmers ask whether two sides are equal; a row's = already does.
+  if (s.includes('==')) s = s.replace(/==/g, '=');
+  if (!/d\/d|[∫Σ∏]/.test(s)) return s;
+  let out = '',
+    i = 0;
+  const word = c => /[\w.]/.test(c || '');
+  while (i < s.length) {
+    const rest = s.slice(i);
+    const dm = !word(s[i - 1]) && rest.match(/^d\/d([A-Za-zθ])(?![A-Za-z0-9_])/);
+    if (dm) {
+      const b = body(s, i + dm[0].length);
+      if (b) {
+        out += `deriv(${textNotation(b[0])},${dm[1]})`;
+        i = b[1];
+        continue;
+      }
+    }
+    if (s[i] === '∫') {
+      let j = i + 1;
+      const lo = bound(s, j, '_');
+      if (lo) j = lo[1];
+      const hi = lo && bound(s, j, '^');
+      if (hi) j = hi[1];
+      // The differential: d and one letter, standing alone, before any stop at this depth.
+      let k = j,
+        found = null;
+      for (let depth = 0; k < s.length; k++) {
+        if ('([{'.includes(s[k])) depth++;
+        else if (depth && ')]}'.includes(s[k])) depth--;
+        else if (!depth && STOP.test(s[k])) break;
+        else if (
+          !depth &&
+          k > j &&
+          s[k] === 'd' &&
+          /[A-Za-zθ]/.test(s[k + 1] || '') &&
+          !word(s[k + 2]) &&
+          !/[A-Za-z]/.test(s[k - 1])
+        ) {
+          found = k;
+          break;
+        }
+      }
+      if (found !== null) {
+        const f = textNotation(s.slice(j, found).trim()),
+          v = s[found + 1];
+        out += hi
+          ? `integral(${f},${v},${textNotation(lo[0])},${textNotation(hi[0])})`
+          : `integral(${f},${v})`;
+        i = found + 2;
+        continue;
+      }
+    }
+    if (s[i] === 'Σ' || s[i] === '∏') {
+      const lo = bound(s, i + 1, '_'),
+        eq = lo && lo[0].indexOf('='),
+        hi = lo && eq > 0 && bound(s, lo[1], '^'),
+        b = hi && body(s, hi[1]);
+      if (b) {
+        out += `${s[i] === 'Σ' ? 'sum' : 'prod'}(${textNotation(b[0])},${lo[0].slice(0, eq).trim()},${textNotation(
+          lo[0].slice(eq + 1),
+        )},${textNotation(hi[0])})`;
+        i = b[1];
+        continue;
+      }
+    }
+    out += s[i++];
+  }
+  return out;
+}
+
 /* Pratt parser: exponentiation is right associative; -x^2 means -(x^2).
    Implicit multiplication binds like *, and chained comparisons are pairwise. */

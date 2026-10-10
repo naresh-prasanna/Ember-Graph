@@ -88,7 +88,24 @@ export function showError(r) {
       note.className = 'sym-note polar';
       note.textContent = r.polar;
       r.errEl.append(note);
+    } else if (!r.err && r.listFull?.short === r.info) {
+      // "… N more" opens the whole list in place, and "show less" closes it again.
+      const open = !!r.listOpen,
+        L = r.listFull,
+        b = document.createElement('button');
+      b.className = 'list-more';
+      b.textContent = open ? 'show less' : `… ${L.n.toLocaleString()} more`;
+      b.onmousedown = e => e.preventDefault();
+      b.onclick = e => {
+        e.stopPropagation();
+        r.listOpen = !open;
+        showError(r);
+      };
+      r.errEl.textContent = open ? L.full + ' ' : L.short.slice(0, L.short.lastIndexOf(', …')) + ', ';
+      r.errEl.append(b);
+      if (!open) r.errEl.append(']');
     } else r.errEl.textContent = r.err || r.info;
+    r.errEl.classList.toggle('list-open', !r.err && !!r.listOpen && r.listFull?.short === r.info);
     r.errEl.style.color = (r.err && !step) || answer || formula || series || solved ? '' : 'var(--dim)';
     r.errEl.classList.toggle('answer', answer || !!formula || !!series || !!solved);
   }
@@ -478,15 +495,26 @@ function renderSheet(r) {
       renderSheet(r);
     };
 }
+// Undo and redo rebuild every row; the open sheet moves to the row in the same place.
+let heldAt = -1;
+export function holdSteps() {
+  heldAt = sheetRow ? S.rows.indexOf(sheetRow) : -1;
+}
 export function stepsCard(r) {
   r.slEl?.querySelector('.steps-card')?.remove();
-  if (sheetRow && !S.rows.includes(sheetRow)) closeSteps();
+  if (sheetRow && !S.rows.includes(sheetRow)) {
+    const next = S.rows[heldAt];
+    heldAt = -1;
+    if (next) sheetRow = next;
+    else closeSteps();
+  }
   const src = r.symSrc,
     integral =
       src?.k === 'call' &&
       ((src.n === 'integral' && (r.sym || r.series || r.symArea)) || (src.n === 'deriv' && r.sym));
   if (!r.slEl || r.err || !(integral || r.symEq)) {
-    if (sheetRow === r) closeSteps();
+    // Mid-edit the row is not an integral for a moment: the sheet waits, hidden, for it to be one again.
+    if (sheetRow === r && sheet) sheet.hidden = true;
     return;
   }
   const open = sheetRow === r,

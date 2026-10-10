@@ -1,6 +1,6 @@
 import { compile } from '../app/model.js';
 import { S } from '../app/state.js';
-import { SYM, math, own, special } from '../math/catalog.js';
+import { SYM, math, own, special, textNotation } from '../math/catalog.js';
 import { splitTop } from '../math/parser.js';
 
 /* UI and state. All imported state is validated before mutation. */
@@ -182,6 +182,12 @@ function R(n) {
           h: `<span class="frac"><span>d</span><span>d${args[1]}</span></span>(${args[0]})`,
           p: 100,
         };
+      // f′(x): the function's name, and the point it is taken at.
+      if (n.n === 'deriv' && args.length === 2 && n.a[0].k === 'name')
+        return {
+          h: nameH(n.a[0].n) + '<span class="prime">′</span>(' + args[1] + ')',
+          p: 100,
+        };
       if (n.n === 'log' && args.length === 2)
         return {
           h: `log<sub>${args[1]}</sub>(${args[0]})`,
@@ -338,7 +344,7 @@ export const astHTML = ast => R(ast).h;
 const SLOT = '_slot';
 export function pretty(text) {
   // As maths dy/dx reads (d·y/d)·x; at the start of a differential equation it is the derivative.
-  text = text.replace(/^\s*dy\s*\/\s*dx(?=\s*=)/, '(dy)/(dx)');
+  text = textNotation(text).replace(/^\s*dy\s*\/\s*dx(?=\s*=)/, '(dy)/(dx)');
   try {
     return richMath(text.replace(/\((?=\s*,)/g, '(' + SLOT).replace(/,(?=\s*[,)])/g, ',' + SLOT));
   } catch {

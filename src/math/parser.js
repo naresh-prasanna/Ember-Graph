@@ -9,8 +9,9 @@ import {
   nullObj,
   own,
   special,
+  textNotation,
 } from './catalog.js';
-import { PROMOTE, complexFns, complexOp, isComplex } from './complex.js';
+import { PROMOTE, complexFns, complexOp, cx, imOf, isComplex, reOf } from './complex.js';
 import { Dist, distStat, METHODS } from './distributions.js';
 import { calcFmt } from './format.js';
 import { Matrix, Point, TEST_PROPS, TTest, negate, valueOp } from './values.js';
@@ -716,7 +717,8 @@ export function evaluate(
           a = Math.round(ev(node.a[2])),
           b = Math.round(ev(node.a[3]));
         if (b - a > 1e5) throw Error('Range too large');
-        let acc = node.n === 'sum' ? 0 : 1;
+        let acc = node.n === 'sum' ? 0 : 1,
+          size = 0;
         for (let i = a; i <= b; i++) {
           const v = evaluate(
             node.a[0],
@@ -729,6 +731,13 @@ export function evaluate(
             budget,
           );
           acc = valueOp(node.n === 'sum' ? '+' : '*', acc, v) ?? (node.n === 'sum' ? acc + v : acc * v);
+          if (node.n === 'sum' && (typeof v === 'number' || isComplex(v)))
+            size += Math.hypot(reOf(v), imOf(v));
+        }
+        // The fifth roots of unity add up to 0: what rounding leaves of a cancelled part is not a value.
+        if (size && Number.isFinite(size) && (typeof acc === 'number' || isComplex(acc))) {
+          const snap = p => (Math.abs(p) < 1e-13 * size ? 0 : p);
+          acc = cx(snap(reOf(acc)), snap(imOf(acc)));
         }
         return acc;
       }
@@ -745,6 +754,8 @@ export function evaluate(
           a = ev(node.a[2]),
           b = ev(node.a[3]);
         if (Array.isArray(a) || Array.isArray(b)) throw Error('Integral bounds must be numbers');
+        if (isComplex(a) || isComplex(b))
+          throw Error('An integral runs along the real line here, so its bounds have to be real numbers');
         if (!Number.isFinite(a) || !Number.isFinite(b)) return NaN;
         return area(node, v => at(nm, v), a, b, scope, nm, env);
       }
@@ -828,6 +839,156 @@ function callUser(n, u, env, stack, budget, branch) {
     ? NaN
     : v;
 }
+/* The real-number part of the language as plain closures, since drawing evaluates one expression hundreds of
+   thousands of times a second. `keys` are the names the scope will hold. null wherever the expression leaves
+   that part (lists, complex numbers, points, sums, integrals), which evaluate then handles. Definitions are read
+   once, so a compiled expression is good for as long as env.cache, and only while env.complex is off. */
+const REAL = new Set(
+  (
+    'sin cos tan asin acos atan atan2 sinh cosh tanh exp sqrt abs floor ceil round sign pow cbrt hypot asinh ' +
+    'acosh atanh log2 ln log arcsin arccos arctan sec csc cot arcsec arccsc arccot sech csch coth nthroot mod ' +
+    'fact ncr npr piece erf erfi Si Ci Ei li Shi Chi fresnelS fresnelC'
+  )
+    .split(' ')
+    .filter(n => !own(listFns, n)),
+);
+const NOT_REAL = Symbol('not real');
+export function compileReal(node, env, keys, branched = false) {
+  const uses = [];
+  try {
+    const f = realFn(node, env, new Set(keys), new Set(), uses, branched);
+    f.uses = uses;
+    return f;
+  } catch {
+    return null;
+  }
+}
+// Whether the function rows a compiled expression calls are still the ones compiled into it.
+export const stillReal = (f, env) => f.uses.every(([n, fn]) => env.fn.get(n) === fn);
+function realFn(node, env, keys, seen, uses, branched) {
+  const go = n => realFn(n, env, keys, seen, uses, branched),
+    // A list in a row drawn once per element gives the element of the copy being drawn.
+    known = v => {
+      if (typeof v === 'number') return () => v;
+      if (!branched || !Array.isArray(v) || !v.every(x => typeof x === 'number')) throw NOT_REAL;
+      return s => v[s[BRANCH]] ?? NaN;
+    };
+  switch (node.k) {
+    case 'num': {
+      const v = node.v;
+      if (typeof v !== 'number') throw NOT_REAL;
+      return () => v;
+    }
+    case 'list':
+    case 'range':
+      return known(evaluate(node, nullObj(), env));
+    case 'name': {
+      const n = node.n;
+      if (keys.has(n)) return s => s[n];
+      if (own(constants, n)) {
+        const v = constants[n];
+        if (typeof v !== 'number') throw NOT_REAL;
+        return () => v;
+      }
+      if (own(math, n) || env.fn.has(n)) throw NOT_REAL;
+      if (own(env.cache, n) || env.def.has(n)) return known(evaluate(node, nullObj(), env));
+      if (own(env.vars, n)) {
+        if (typeof env.vars[n] !== 'number') throw NOT_REAL;
+        return () => env.vars[n];
+      }
+      if (keys.has('x') && keys.has('y')) {
+        if (n === 'r') return s => Math.hypot(s.x, s.y);
+        if (n === 'theta') return s => Math.atan2(s.y, s.x);
+      }
+      throw NOT_REAL;
+    }
+    case 'unary': {
+      const a = go(node.a);
+      if (node.op === '-') return s => -a(s);
+      if (node.op === '+') return s => +a(s);
+      throw NOT_REAL;
+    }
+    case 'binary': {
+      const a = go(node.a),
+        b = go(node.b);
+      switch (node.op) {
+        case '+':
+          return s => a(s) + b(s);
+        case '-':
+          return s => a(s) - b(s);
+        case '*':
+          return s => a(s) * b(s);
+        case '/':
+          return s => a(s) / b(s);
+        case '%':
+          return s => a(s) % b(s);
+        case '^':
+          return s => a(s) ** b(s);
+      }
+      throw NOT_REAL;
+    }
+    case 'cmp': {
+      const vals = node.a.map(go),
+        ops = node.ops;
+      return s => {
+        let a = vals[0](s);
+        for (let i = 0; i < ops.length; i++) {
+          const b = vals[i + 1](s);
+          if (!compare(a, ops[i], b)) return false;
+          a = b;
+        }
+        return true;
+      };
+    }
+    case 'call': {
+      const n = node.n;
+      if (n === 'deriv') {
+        const [body, v] = node.a;
+        if (
+          node.a.length !== 2 ||
+          v.k !== 'name' ||
+          (body.k === 'name' && (own(math, body.n) || env.fn.has(body.n)))
+        )
+          throw NOT_REAL;
+        const nm = v.n,
+          f = realFn(body, env, new Set([...keys, nm]), seen, uses, branched),
+          at = go(v);
+        return s => {
+          const a = at(s),
+            h = 1e-5 * (1 + Math.abs(a)),
+            inner = { ...s };
+          inner[nm] = a + h;
+          const up = f(inner);
+          inner[nm] = a - h;
+          return (up - f(inner)) / (2 * h);
+        };
+      }
+      if (special.has(n) || own(listFns, n)) throw NOT_REAL;
+      if (own(math, n)) {
+        if (!REAL.has(n)) throw NOT_REAL;
+        const f = math[n],
+          args = node.a.map(go);
+        if (args.length === 1) {
+          const [a] = args;
+          return s => f(a(s));
+        }
+        if (args.length === 2) {
+          const [a, b] = args;
+          return s => f(a(s), b(s));
+        }
+        return s => f(...args.map(a => a(s)));
+      }
+      const fn = env.fn.get(n);
+      if (!fn || node.a.length !== 1 || seen.has(n) || fn.row?.k?.filter) throw NOT_REAL;
+      uses.push([n, fn]);
+      const p = fn.param,
+        u = go(node.a[0]),
+        body = realFn(fn.ast, env, new Set([p]), new Set([...seen, n]), uses, branched);
+      return branched ? s => body({ [p]: u(s), [BRANCH]: s[BRANCH] }) : s => body({ [p]: u(s) });
+    }
+  }
+  throw NOT_REAL;
+}
 /* How many copies an expression draws: the length of the shortest list it uses element by element,
    or null when it uses none. Lists inside summaries such as total(L) don't count. */
 export function listLength(node, env, seen = new Set()) {
@@ -906,7 +1067,7 @@ export function parts(text) {
       body: text.trim(),
       filter: '',
     };
-  let body = normalize(text.trim()),
+  let body = normalize(textNotation(text.trim())),
     filter = '';
   if (body.includes('{')) {
     const i = body.indexOf('{');

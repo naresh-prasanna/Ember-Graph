@@ -2,7 +2,7 @@ import { geo, morphStep, surfaceMesh } from '../app/geometry.js';
 import { liveTrace } from '../app/interaction.js';
 import { parameter, setVar } from '../app/model.js';
 import { S, reduceMotion } from '../app/state.js';
-import { $, ctx } from '../core/dom.js';
+import { $, ctx, cv } from '../core/dom.js';
 import { revealGeometry } from '../math/contours.js';
 import { complexText } from '../math/complex.js';
 import { fmt, nice, rgba } from '../math/format.js';
@@ -132,30 +132,30 @@ function orbitGuides() {
   ctx.font = '9px monospace';
   ctx.textBaseline = 'middle';
   ctx.textAlign = 'center';
-  ctx.strokeStyle = 'rgba(197,184,165,.24)';
   ctx.lineWidth = 0.7;
+  ctx.fillStyle = 'rgba(210,188,163,.53)';
+  // Every tick in one stroke and every spoke in another: a stroke apiece cost the GPU more than the curves did.
+  const ticks = new Path2D(),
+    spokes = new Path2D();
   for (let d = 0; d < 360; d += 5) {
     const t = (d * Math.PI) / 180,
       co = Math.cos(t),
       si = Math.sin(t),
       len = d % 30 === 0 ? 12 : d % 10 === 0 ? 7 : 3;
-    ctx.beginPath();
-    ctx.moveTo(x + (R + 9) * co, y - (R + 9) * si);
-    ctx.lineTo(x + (R + 9 + len) * co, y - (R + 9 + len) * si);
-    ctx.stroke();
+    ticks.moveTo(x + (R + 9) * co, y - (R + 9) * si);
+    ticks.lineTo(x + (R + 9 + len) * co, y - (R + 9 + len) * si);
     if (d % 30 === 0) {
-      ctx.fillStyle = 'rgba(210,188,163,.53)';
       ctx.fillText(d + '°', x + (R + 36) * co, y - (R + 36) * si);
-      ctx.setLineDash([3, 7]);
-      ctx.strokeStyle = 'rgba(221,139,87,.16)';
-      ctx.beginPath();
-      ctx.moveTo(x + 20 * co, y - 20 * si);
-      ctx.lineTo(x + (R - 8) * co, y - (R - 8) * si);
-      ctx.stroke();
-      ctx.setLineDash([]);
-      ctx.strokeStyle = 'rgba(197,184,165,.24)';
+      spokes.moveTo(x + 20 * co, y - 20 * si);
+      spokes.lineTo(x + (R - 8) * co, y - (R - 8) * si);
     }
   }
+  ctx.strokeStyle = 'rgba(197,184,165,.24)';
+  ctx.stroke(ticks);
+  ctx.setLineDash([3, 7]);
+  ctx.strokeStyle = 'rgba(221,139,87,.16)';
+  ctx.stroke(spokes);
+  ctx.setLineDash([]);
   const yy = y + R + 64;
   ctx.strokeStyle = 'rgba(218,190,157,.3)';
   ctx.beginPath();
@@ -210,6 +210,15 @@ function drawGuides(paths, col, alpha) {
   ctx.restore();
 }
 function glow(path, col, width = 1.15) {
+  // A translucent, additive stroke across the screen costs the GPU a couple of milliseconds to rasterize, an
+  // opaque one about a third of that, so while the view moves each curve is one plain stroke: forty glowing
+  // curves took 300 ms a frame. The glow comes back on the frame after the view settles.
+  if (S.fast) {
+    ctx.strokeStyle = col;
+    ctx.lineWidth = width;
+    ctx.stroke(path);
+    return;
+  }
   ctx.globalCompositeOperation = 'lighter';
   ctx.strokeStyle = rgba(col, 0.035);
   ctx.lineWidth = width + 12;
@@ -483,102 +492,173 @@ function drawBoxes({ cells, s }, col) {
   ctx.lineWidth = 0.6;
   ctx.stroke();
 }
+// The matrix carrying a row's samples from the view they were taken in to the current one, if that differs.
+function shift(r) {
+  const v = r.gv;
+  if (!v || (v[0] === S.V.cx && v[1] === S.V.cy && v[2] === S.V.s)) return null;
+  const f = S.V.s / v[2];
+  return new DOMMatrix([f, 0, 0, f, S.V.cx - v[0] * f, S.V.cy - v[1] * f]);
+}
+function moved(path, m) {
+  if (!m) return path;
+  const q = new Path2D();
+  q.addPath(path, m);
+  return q;
+}
+/* Forty glowing curves take the GPU a few hundred milliseconds to draw. While none of them is moving, the
+   background, grid and curves are kept from the last frame, and only what moves over them (a trace, marks,
+   sparks) is drawn again. */
+const still = { key: null, c: null },
+  ids = new WeakMap();
+let lastId = 0;
+const idOf = o => (o ? (ids.get(o) ?? (ids.set(o, ++lastId), lastId)) : 0),
+  drawn = r => !r.off && !r.err && r.k && r.g && !['const', 'surf', 'fractal'].includes(r.k.type);
+function stillKey() {
+  let key = [
+    S.W,
+    S.H,
+    cv.width,
+    cv.height,
+    S.V.cx,
+    S.V.cy,
+    S.V.s,
+    ...camera.matrix,
+    S.fast,
+    S.construction,
+    S.activeScene,
+  ].join();
+  for (const r of S.rows) {
+    key += `|${r.id},${r.off},${!!r.err},${r.col},${idOf(r.k)},${idOf(r.g)},${idOf(r.fractal)},${idOf(r.box?.on && r.box.cells)}`;
+    if (drawn(r) && (r.prog < 1 || r.m || r.seal)) return null;
+  }
+  return key;
+}
+function keepStill(key) {
+  const c = (still.c ||= document.createElement('canvas'));
+  if (c.width !== cv.width || c.height !== cv.height) {
+    c.width = cv.width;
+    c.height = cv.height;
+  }
+  const x = c.getContext('2d');
+  x.globalCompositeOperation = 'copy';
+  x.drawImage(cv, 0, 0);
+  still.key = key;
+}
 function drawScene(dt) {
   ctx.globalAlpha = 1;
   ctx.globalCompositeOperation = 'source-over';
   ctx.lineCap = ctx.lineJoin = 'round';
   if (S.mode3) return draw3(dt);
-  drawFractals();
-  grid();
   let busy = false;
-  for (const r of S.rows) {
-    if (r.off || r.err || !r.k || !r.g || ['const', 'surf', 'fractal'].includes(r.k.type)) continue;
-    const g = r.g,
-      tracing = r.prog < 1;
-    if (tracing) {
-      if (!r.reveal || r.prog === 0) r.reveal = { p0: r.prog, s0: r.prog, hp: r.prog, g, view: r.gv };
-      r.prog = Math.min(1, r.prog + dt / (S.presentation ? 4 : 2.8));
-      busy = true;
-      r.seal = null;
-    }
-    const shown = tracing ? revealFraction(r, g) : 1;
-    r.shown = shown;
-    if (g.fill && r.k.type === 'shape') {
-      // A shape's fill moves with its springing outline rather than jumping to where it will end up.
-      let F = g.fill;
-      if (r.m) {
-        F = new Path2D();
-        for (const L of g.L) {
-          F.moveTo(L[0], L[1]);
-          for (let i = 2; i < L.length; i += 2) F.lineTo(L[i], L[i + 1]);
-          F.closePath();
-        }
+  const key = stillKey();
+  if (key !== null && key === still.key) {
+    ctx.save();
+    ctx.setTransform(1, 0, 0, 1, 0, 0);
+    ctx.drawImage(still.c, 0, 0);
+    ctx.restore();
+  } else drawRows();
+  function drawRows() {
+    drawFractals();
+    grid();
+    for (const r of S.rows) {
+      if (!drawn(r)) continue;
+      const g = r.g,
+        tracing = r.prog < 1;
+      if (tracing) {
+        if (!r.reveal || r.prog === 0) r.reveal = { p0: r.prog, s0: r.prog, hp: r.prog, g, view: r.gv };
+        r.prog = Math.min(1, r.prog + dt / (S.presentation ? 4 : 2.8));
+        busy = true;
+        r.seal = null;
       }
-      ctx.fillStyle = rgba(r.col, 0.16 * r.prog);
-      ctx.fill(F);
-    } else if (g.fill) {
-      ctx.fillStyle = rgba(r.col, 0.055 * r.prog * (r.m ? 0.35 : 1));
-      ctx.fill(g.fill);
-    }
-    if (g.band) {
-      ctx.fillStyle = rgba(r.col, 0.8 * r.prog);
-      ctx.fill(g.band);
-    }
-    let { P, trail, head, prev } = revealGeometry(g, shown);
-    if (tracing && r.reveal && head) {
-      r.reveal.head = toWorld(head);
-      r.reveal.hp = r.prog;
-    }
-    if (tracing && r.prog === 1) {
-      r.reveal = null;
-      if (head && !reduceMotion && onScreen(head)) sealCurve(r, head, closedPath(g.L[g.L.length - 1]));
-    }
-    if (r.prog < 1 && head && (!camera.trace || r.col === '#ff783b')) camera.trace = head;
-    if (r.box?.on && r.box.cells) drawBoxes(r.box, r.col);
-    if (g.guides?.length) drawGuides(g.guides, r.col, r.prog);
-    if (r.k.strict) ctx.setLineDash([2, 4]);
-    // A slope field sits behind the curves it describes.
-    if (r.k.type === 'field') ctx.globalAlpha = 0.45;
-    glow(P, r.col);
-    ctx.globalAlpha = 1;
-    ctx.setLineDash([]);
-    if (r.seal) {
-      drawSeal(r, dt);
-      busy = true;
-    }
-    if (r.prog < 1) {
-      ctx.strokeStyle = '#ffe6bd';
-      ctx.lineWidth = 1.25;
-      ctx.stroke(trail);
-    }
-    for (const { p, col = r.col } of g.pts) {
-      halo(p, col, 8, r.prog);
-      ctx.globalAlpha = r.prog;
-      ctx.fillStyle = col;
-      ctx.beginPath();
-      ctx.arc(...p, r.k.type === 'table' ? 3 : 2.4, 0, Math.PI * 2);
-      ctx.fill();
+      const shown = tracing ? revealFraction(r, g) : 1;
+      r.shown = shown;
+      const m = shift(r),
+        at = p => (m ? [p[0] * m.a + m.e, p[1] * m.d + m.f] : p);
+      if (g.fill && r.k.type === 'shape') {
+        // A shape's fill moves with its springing outline rather than jumping to where it will end up.
+        let F = g.fill;
+        if (r.m) {
+          F = new Path2D();
+          for (const L of g.L) {
+            F.moveTo(L[0], L[1]);
+            for (let i = 2; i < L.length; i += 2) F.lineTo(L[i], L[i + 1]);
+            F.closePath();
+          }
+        }
+        ctx.fillStyle = rgba(r.col, 0.16 * r.prog);
+        ctx.fill(moved(F, m));
+      } else if (g.fill) {
+        ctx.fillStyle = rgba(r.col, 0.055 * r.prog * (r.m ? 0.35 : 1));
+        ctx.fill(moved(g.fill, m));
+      }
+      if (g.band) {
+        ctx.fillStyle = rgba(r.col, 0.8 * r.prog);
+        ctx.fill(moved(g.band, m));
+      }
+      let { P, trail, head, prev } = revealGeometry(g, shown);
+      P = moved(P, m);
+      if (tracing && r.reveal && head) {
+        r.reveal.head = toWorld(head);
+        r.reveal.hp = r.prog;
+      }
+      if (tracing && r.prog === 1) {
+        r.reveal = null;
+        if (head && !reduceMotion && onScreen(head)) sealCurve(r, head, closedPath(g.L[g.L.length - 1]));
+      }
+      if (r.prog < 1 && head && (!camera.trace || r.col === '#ff783b')) camera.trace = head;
+      if (r.box?.on && r.box.cells) drawBoxes(r.box, r.col);
+      if (g.guides?.length)
+        drawGuides(
+          m ? g.guides.map(L => L.map((v, i) => (i % 2 ? v * m.d + m.f : v * m.a + m.e))) : g.guides,
+          r.col,
+          r.prog,
+        );
+      if (r.k.strict) ctx.setLineDash([2, 4]);
+      // A slope field sits behind the curves it describes.
+      if (r.k.type === 'field') ctx.globalAlpha = 0.45;
+      glow(P, r.col);
       ctx.globalAlpha = 1;
-    }
-    if (r.prog < 1 && head && onScreen(head)) {
-      traceHead(head, r.col);
-      if (!reduceMotion) {
-        const angle = Math.atan2(head[1] - prev[1], head[0] - prev[0]);
-        for (let i = 0; i < Math.ceil(dt * 75) && S.sparks.length < 500; i++) {
-          const a = angle + Math.PI + (Math.random() - 0.5) * 2.6,
-            s = 20 + Math.random() * 95;
-          S.sparks.push({
-            x: head[0],
-            y: head[1],
-            vx: Math.cos(a) * s,
-            vy: Math.sin(a) * s - 30,
-            life: 0,
-            max: 0.3 + Math.random() * 0.6,
-            col: r.col,
-          });
+      ctx.setLineDash([]);
+      if (r.seal) {
+        drawSeal(r, dt);
+        busy = true;
+      }
+      if (r.prog < 1) {
+        ctx.strokeStyle = '#ffe6bd';
+        ctx.lineWidth = 1.25;
+        ctx.stroke(trail);
+      }
+      for (const { p: q, col = r.col } of g.pts) {
+        const p = at(q);
+        halo(p, col, 8, r.prog);
+        ctx.globalAlpha = r.prog;
+        ctx.fillStyle = col;
+        ctx.beginPath();
+        ctx.arc(...p, r.k.type === 'table' ? 3 : 2.4, 0, Math.PI * 2);
+        ctx.fill();
+        ctx.globalAlpha = 1;
+      }
+      if (r.prog < 1 && head && onScreen(head)) {
+        traceHead(head, r.col);
+        if (!reduceMotion) {
+          const angle = Math.atan2(head[1] - prev[1], head[0] - prev[0]);
+          for (let i = 0; i < Math.ceil(dt * 75) && S.sparks.length < 500; i++) {
+            const a = angle + Math.PI + (Math.random() - 0.5) * 2.6,
+              s = 20 + Math.random() * 95;
+            S.sparks.push({
+              x: head[0],
+              y: head[1],
+              vx: Math.cos(a) * s,
+              vy: Math.sin(a) * s - 30,
+              life: 0,
+              max: 0.3 + Math.random() * 0.6,
+              col: r.col,
+            });
+          }
         }
       }
     }
+    if (key !== null) keepStill(key);
   }
   if (drawAshes(dt)) busy = true;
   if (lastView && (lastView.cx !== S.V.cx || lastView.cy !== S.V.cy || lastView.s !== S.V.s)) {
@@ -791,6 +871,36 @@ function draw3(dt) {
   }
   return busy;
 }
+/* Resampling forty rows takes a few hundred milliseconds. While the view moves, rows take turns at a few
+   milliseconds of it per frame, and the rest are drawn from their last samples carried to the new view. */
+const BUDGET = 6;
+let turn = 0;
+const movable = r =>
+  r.g &&
+  r.gv &&
+  r.gv[3] === S.W &&
+  r.gv[4] === S.H &&
+  !r.m &&
+  !(r.prog < 1) &&
+  !['fractal', 'surf'].includes(r.k?.type);
+function refresh(start) {
+  const n = S.rows.length;
+  let fresh = 0,
+    left = 0;
+  for (let i = 0; i < n; i++) {
+    const j = (turn + i) % n,
+      r = S.rows[j];
+    if (S.fast && movable(r)) {
+      if (fresh && performance.now() - start > BUDGET) {
+        if (!left++) turn = j;
+        continue;
+      }
+      fresh++;
+    }
+    geo(r);
+  }
+  S.dirty = left > 0;
+}
 let scaleText = '';
 function tick(t) {
   const dt = Math.min((t - S.lastT) / 1000, 0.25);
@@ -819,8 +929,8 @@ function tick(t) {
     }
     if (S.dirty) {
       const start = performance.now();
-      if (!S.mode3) S.rows.forEach(geo);
-      S.dirty = false;
+      if (S.mode3) S.dirty = false;
+      else refresh(start);
       timing('curves', performance.now() - start);
     }
     if (S.drifting && S.mode3 && !reduceMotion) S.C.y += dt * 0.085;

@@ -591,6 +591,28 @@ aside {
   margin-top: 4px;
 }
 
+/* A long list's "… N more": opens the whole list, which then scrolls inside the row. */
+.err .list-more {
+  font: inherit;
+  color: var(--hot);
+  background: none;
+  border: 0;
+  padding: 0;
+  cursor: pointer;
+  text-decoration: underline dotted;
+  text-underline-offset: 3px;
+}
+.err .list-more:hover,
+.err .list-more:focus-visible {
+  text-decoration-style: solid;
+  outline: none;
+}
+.err.list-open {
+  max-height: 40vh;
+  overflow-y: auto;
+  overscroll-behavior: contain;
+}
+
 /* Integration steps: a button in the row, the working in a sheet beside the list. */
 .steps-card {
   margin-top: 10px;
@@ -672,10 +694,12 @@ body.present .steps-sheet {
   }
 }
 @media (max-width: 720px) {
+  /* Full screen it covers the list's text as well as the graph, so nothing may show through. */
   .steps-sheet {
     z-index: 40;
     inset: 0;
     width: auto;
+    background: linear-gradient(180deg, #151617, #0e0f10);
   }
 }
 .ss-bar {

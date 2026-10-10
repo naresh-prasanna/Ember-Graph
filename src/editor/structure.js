@@ -1,4 +1,4 @@
-import { SYM, math, own } from '../math/catalog.js';
+import { SYM, math, own, textNotation } from '../math/catalog.js';
 import { SPELLINGS } from '../math/names.js';
 import { FN_HELP } from '../ui/keyHelp.js';
 
@@ -137,6 +137,7 @@ function subPass(a) {
 }
 export function parseText(str) {
   if (str[0] === '"') return [...str];
+  str = textNotation(str);
   let i = 0,
     closed = false;
   const run = re => {

@@ -2,6 +2,7 @@ import { loadState, state } from '../app/persistence.js';
 import { S } from '../app/state.js';
 import { $ } from '../core/dom.js';
 import { kick } from '../render/renderer.js';
+import { holdSteps } from './panel.js';
 
 const historySnap = () =>
   JSON.stringify({
@@ -43,6 +44,7 @@ function applyHistory(i) {
   histPos = i;
   const o = JSON.parse(hist[i]);
   histApplying = true;
+  holdSteps();
   try {
     loadState({
       ...state(),

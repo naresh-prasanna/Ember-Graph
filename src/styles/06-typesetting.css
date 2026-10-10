@@ -135,3 +135,8 @@
 .mq .rad > .blk {
   line-height: 1.25;
 }
+
+/* f′(x): an italic f leans over where the prime sits, so the prime keeps a little distance. */
+.prime {
+  margin-left: 0.12em;
+}

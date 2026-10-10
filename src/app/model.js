@@ -9,12 +9,15 @@ import { ddValue } from '../math/doubleDouble.js';
 import { calcFmt, clamp, fmt } from '../math/format.js';
 import { FRACTALS, parseFractal } from '../math/fractals.js';
 import {
+  BRANCH,
   compileExpr,
+  compileReal,
   definition,
   evaluate,
   listLength,
   parts,
   splitTop,
+  stillReal,
   undefinedReason,
 } from '../math/parser.js';
 import { lm, solve, sse } from '../math/regression.js';
@@ -57,7 +60,32 @@ export function makeRow(text = '', options = {}) {
   };
 }
 export function val(compiled, scope = {}) {
-  return evaluate(compiled.ast, scope, S.env);
+  const env = S.env;
+  if (!env.complex) {
+    let fast = compiled.fast;
+    if (fast?.cache !== env.cache)
+      fast = compiled.fast = { cache: env.cache, by: new Map(), keys: null, f: null };
+    const branched = scope[BRANCH] !== undefined;
+    // Sampling asks with the same names over and over, so the last ones are checked before building a key.
+    let same = !!fast.keys && fast.branched === branched,
+      n = 0;
+    for (const k in scope) same &&= fast.keys[n++] === k;
+    let f = same && n === fast.keys.length ? fast.f : undefined;
+    if (f === undefined) {
+      const keys = Object.keys(scope),
+        sig = keys.join() + (branched ? ';copy' : '');
+      f = fast.by.get(sig);
+      if (f === undefined) fast.by.set(sig, (f = compileReal(compiled.ast, env, keys, branched)));
+      Object.assign(fast, { keys, branched, f });
+    }
+    if (f && !stillReal(f, env)) {
+      fast.by.clear();
+      fast.keys = null;
+      f = null;
+    }
+    if (f) return f(scope);
+  }
+  return evaluate(compiled.ast, scope, env);
 }
 // A row's value rather than a graph: √(−4) is 2i here, where a curve would just stop.
 function valueOf(compiled) {
@@ -70,14 +98,18 @@ function valueOf(compiled) {
 }
 // Implicit curves are sampled over the whole screen, so far fewer copies of them can be drawn.
 export const maxCopies = type => (type === 'pt' ? 10000 : type === 'imp' || type === 'ineq' ? 20 : 200);
-const listFmt = v =>
-  '[' +
-  v
-    .slice(0, 12)
-    .map(x => (typeof x === 'number' ? calcFmt(x) : String(x)))
-    .join(', ') +
-  (v.length > 12 ? `, … ${v.length - 12} more` : '') +
-  ']';
+const listItem = x => (typeof x === 'number' ? calcFmt(x) : String(x));
+// The first 12 elements; a longer list keeps all of them on the row, for "… N more" to open.
+const listFmt = (v, r) => {
+  const short =
+    '[' + v.slice(0, 12).map(listItem).join(', ') + (v.length > 12 ? `, … ${v.length - 12} more` : '') + ']';
+  if (r)
+    r.listFull =
+      v.length > 12
+        ? { short: '= ' + short, full: '= [' + v.map(listItem).join(', ') + ']', n: v.length - 12 }
+        : null;
+  return short;
+};
 const CAPPED = 'Drawing the first ';
 // The copies a row draws, one per list element; undefined when it uses no list.
 // Asked on every redraw, since a slider can change how long a list is.
@@ -101,7 +133,7 @@ function listInfo(r) {
   try {
     const v = val({ ast: { k: 'name', n: r.k.name } });
     r.value = carded(v) ? v : null;
-    if (Array.isArray(v)) r.info = '= ' + listFmt(v);
+    if (Array.isArray(v)) r.info = '= ' + listFmt(v, r);
     else if (typeof v === 'object' && v) r.info = valueInfo(v);
   } catch (e) {
     r.err = e.message;
@@ -702,6 +734,16 @@ function rebuildRows({ reset = false } = {}, held = null) {
       r.err = e.message;
     }
   }
+  // A function defined as d/dx or ∫ of something is called through its formula, so f(2) is exact and agrees
+  // with the curve, and that has to be known before any row's value is worked out.
+  for (const r of S.rows) {
+    r.sym = r.series = r.symSrc = r.symArea = null;
+    if (!r.err && r.k?.type === 'function') {
+      symbolicRow(r);
+      const f = S.env.fn.get(r.k.name);
+      if (f?.row === r && (r.sym || r.k.c.ast !== f.ast)) S.env.fn.set(r.k.name, { ...f, ast: r.k.c.ast });
+    }
+  }
   // An expression with nothing to plot against, like `apples + 10`, shows its value.
   for (const r of S.rows) {
     const k = r.k;
@@ -737,39 +779,7 @@ function rebuildRows({ reset = false } = {}, held = null) {
     k.c = k.bare;
     calcInfo(r);
   }
-  // d/dx x² and ∫ x² dx are worked out by hand too, so the row can say = 2x, the way 10 + 5 says = 15.
-  for (const r of S.rows) {
-    r.sym = r.series = r.symSrc = r.symArea = null;
-    const k = r.k;
-    if (k?.ode) continue;
-    if (!r.err && k?.withC) {
-      try {
-        const res = integralEquation(k.sides[0].ast, k.sides[1].ast, S.env);
-        if (res) {
-          k.c = { ...k.c, ast: res.ast };
-          r.symEq = res;
-        }
-      } catch {
-        // Left to be drawn numerically.
-      }
-      continue;
-    }
-    if (r.err || !k || !['cart', 'cartY', 'function'].includes(k.type) || k.reg || k.dist) continue;
-    const src = k.c?.ast;
-    try {
-      const res = calculus(src, S.env);
-      if (res) {
-        [r.symSrc, r.series, r.symIndef] = [src, res.series || null, res.indefinite];
-        [r.seriesAt, r.graphFrom, r.symArea] = [res.center || 0, res.from || 0, res.area || null];
-        // The curve is drawn from the formula: exact, and far cheaper than integrating at every point.
-        // With none, it is the area from a point where the integrand is defined.
-        if (res.ast || res.graph) k.c = { ...k.c, ast: res.ast || res.graph };
-        if (res.ast) r.sym = res.ast;
-      }
-    } catch (e) {
-      if (!r.info) r.info = e.message;
-    }
-  }
+  for (const r of S.rows) if (r.k?.type !== 'function') symbolicRow(r);
   for (const r of S.rows)
     if (!r.err && !r.info && ['cart', 'function'].includes(r.k?.type) && complexCurve(r))
       r.info = 'Its values are complex, so there is no real curve: graph re(…) or im(…) of it instead';
@@ -902,7 +912,12 @@ function shapeInfo(r, v) {
     // A list of them is easier to scan at five figures.
     r.info =
       '= ' +
-      (Array.isArray(v) ? listFmt(v.map(z => (isComplex(z) ? complexText(z.re, z.im, fmt) : z))) : String(v));
+      (Array.isArray(v)
+        ? listFmt(
+            v.map(z => (isComplex(z) ? complexText(z.re, z.im, fmt) : z)),
+            r,
+          )
+        : String(v));
     if (!Array.isArray(v)) r.polar = polarText(v, r.k.name);
     return;
   }
@@ -1058,13 +1073,46 @@ function valueInfo(v) {
   if (v instanceof Dist) return v.describe();
   return '= ' + String(v);
 }
+// d/dx x² and ∫ x² dx are worked out by hand too, so the row can say = 2x, the way 10 + 5 says = 15.
+function symbolicRow(r) {
+  r.sym = r.series = r.symSrc = r.symArea = null;
+  const k = r.k;
+  if (k?.ode) return;
+  if (!r.err && k?.withC) {
+    try {
+      const res = integralEquation(k.sides[0].ast, k.sides[1].ast, S.env);
+      if (res) {
+        k.c = { ...k.c, ast: res.ast };
+        r.symEq = res;
+      }
+    } catch {
+      // Left to be drawn numerically.
+    }
+    return;
+  }
+  if (r.err || !k || !['cart', 'cartY', 'function'].includes(k.type) || k.reg || k.dist) return;
+  const src = k.c?.ast;
+  try {
+    const res = calculus(src, S.env);
+    if (res) {
+      [r.symSrc, r.series, r.symIndef] = [src, res.series || null, res.indefinite];
+      [r.seriesAt, r.graphFrom, r.symArea] = [res.center || 0, res.from || 0, res.area || null];
+      // The curve is drawn from the formula: exact, and far cheaper than integrating at every point.
+      // With none, it is the area from a point where the integrand is defined.
+      if (res.ast || res.graph) k.c = { ...k.c, ast: res.ast || res.graph };
+      if (res.ast) r.sym = res.ast;
+    }
+  } catch (e) {
+    if (!r.info) r.info = e.message;
+  }
+}
 function calcInfo(r) {
   try {
     S.env.cache = nullObj();
     const v = ddValue(r.k.c, val);
     r.value = carded(v) ? v : null;
     r.info = Array.isArray(v)
-      ? '= ' + listFmt(v)
+      ? '= ' + listFmt(v, r)
       : typeof v === 'object' && v
         ? valueInfo(v)
         : Number.isNaN(v)

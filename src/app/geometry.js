@@ -196,7 +196,12 @@ function geoRaw(r) {
       const out = [];
       let last = -1;
       for (let i = 0; i < us.length; i++) {
-        const [xl, yl, x, y, xr, yr] = [-2, -1, 0, 1, 2, 3].map(j => pts[2 * i + j]),
+        const xl = pts[2 * i - 2],
+          yl = pts[2 * i - 1],
+          x = pts[2 * i],
+          y = pts[2 * i + 1],
+          xr = pts[2 * i + 2],
+          yr = pts[2 * i + 3],
           dl = y - yl,
           dr = y - yr,
           dir =
@@ -204,12 +209,12 @@ function geoRaw(r) {
             i < us.length - 1 &&
             budget > 0 &&
             us[i] - last > 1e-5 &&
-            !far([x, y]) &&
             dl &&
             dr &&
             dl < 0 === dr < 0 &&
             Math.abs(dl) > 4 * Math.abs(x - xl) &&
-            Math.abs(dr) > 4 * Math.abs(xr - x)
+            Math.abs(dr) > 4 * Math.abs(xr - x) &&
+            !far([x, y])
               ? Math.sign(dl)
               : 0,
           a = dir && asymptote(us[i - 1], us[i + 1], dir);

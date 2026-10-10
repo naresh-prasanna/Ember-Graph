@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest';
-import { nullObj } from '../src/math/catalog.js';
+import { nullObj, textNotation } from '../src/math/catalog.js';
 import { stitchContours } from '../src/math/contours.js';
 import { ddValue } from '../src/math/doubleDouble.js';
 import { calcFmt, fmt, nice } from '../src/math/format.js';
@@ -9,6 +9,7 @@ import { mxDet, mxInv } from '../src/math/matrix.js';
 import {
   BRANCH,
   compileExpr,
+  compileReal,
   definition,
   evaluate,
   listLength,
@@ -185,6 +186,73 @@ describe('parser and evaluator', () => {
     expect(calc('3²')).toBe(9);
     expect(calc('√(16)')).toBe(4);
     expect(calc('6÷3×2')).toBe(4);
+  });
+
+  it('reads typed calculus notation the way the editor writes it', () => {
+    expect(textNotation('d/dx(x^2)')).toBe('deriv(x^2,x)');
+    expect(textNotation('d/dx sin(x)')).toBe('deriv(sin(x),x)');
+    expect(textNotation('y = d/dx(sin(x)) + 2')).toBe('y = deriv(sin(x),x) + 2');
+    expect(textNotation('∫ x^2 dx')).toBe('integral(x^2,x)');
+    expect(textNotation('∫_0^1 x^2 dx')).toBe('integral(x^2,x,0,1)');
+    expect(textNotation('Σ_(n=1)^(10) n^2')).toBe('sum(n^2,n,1,10)');
+    expect(textNotation('∏_(k=1)^(4) k')).toBe('prod(k,k,1,4)');
+    expect(textNotation('||x|-1|')).toBe('abs(abs(x)-1)');
+    expect(textNotation('x == 2')).toBe('x = 2');
+    expect(textNotation('|x')).toBe('|x');
+    expect(calc(textNotation('d/dx(x^3)'), { x: 2 })).toBeCloseTo(12, 6);
+  });
+
+  it('gives exact answers for cancelling complex sums, and real bounds for integrals', () => {
+    const e = { ...env(), complex: true };
+    expect(calc('sum(e^(2pi i k/5), k, 0, 4)', {}, e)).toBe(0);
+    expect(() => calc('integral(x, x, 0, i)', {}, e)).toThrow('its bounds have to be real numbers');
+  });
+
+  it('compiles real expressions to the same values the evaluator gives', () => {
+    const e = env({ s: 0.7 }),
+      ast = src => compileExpr(src).ast;
+    e.def.set('a', { ast: ast('1.5'), row: {} });
+    e.def.set('L', { ast: ast('[1, 2, 3, 4]'), row: {} });
+    e.fn.set('f', { ast: ast('x^2 - 2'), param: 'x', row: { k: {} } });
+    e.fn.set('g', { ast: ast('f(x) sin(x)'), param: 'x', row: { k: {} } });
+    const exprs = [
+      'a sin(x) + s',
+      'x^3/10 - x',
+      '(-8)^(1/3) + x^0.5',
+      'tan(x)/5',
+      'sqrt(abs(x)) - ln(x) + log(x, 2)',
+      'piece(x < 0, -x, x^2/3)',
+      '1 < x <= 2',
+      'g(x)/4 + f(2)',
+      'deriv(x^2 sin(x), x)',
+      'x^2 + y^2 - 16',
+      'sin(x) + cos(y) - 0.5',
+      'r - theta/4',
+      'mod(x, 3) + fact(3) + nthroot(-8, 3)',
+      '1/x + sec(x) + arccot(x)',
+    ];
+    for (const src of exprs) {
+      const node = ast(src),
+        f = compileReal(node, e, ['x', 'y']);
+      expect(f, src).toBeTypeOf('function');
+      for (const x of [-2.5, -1, 0, 0.3, 1, Math.PI / 2, 7])
+        for (const y of [-1, 0.5])
+          expect(f({ x, y }), `${src} at ${x}, ${y}`).toBe(evaluate(node, { x, y }, e));
+    }
+    const listed = ast('L x / 40');
+    expect(compileReal(listed, e, ['x'])).toBeNull();
+    const copy = compileReal(listed, e, ['x'], true);
+    for (const b of [0, 3, 5])
+      expect(copy({ x: 2, [BRANCH]: b })).toBe(evaluate(listed, { x: 2, [BRANCH]: b }, e));
+    for (const src of [
+      'sum(n^2, n, 1, x)',
+      'x + i',
+      '(x, 1)',
+      'integral(t, t, 0, x)',
+      'mean(L) + x',
+      'q + x',
+    ])
+      expect(compileReal(ast(src), e, ['x']), src).toBeNull();
   });
 
   it('evaluates coordinates and parameters', () => {
