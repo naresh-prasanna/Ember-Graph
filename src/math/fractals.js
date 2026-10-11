@@ -53,8 +53,165 @@ export const FRACTALS = {
     hint: 'Higher-power conjugate dynamics',
     rule: 'zₙ₊₁ = conjugate(zₙ)ᵖ + c',
   },
+  /* Self-similar curves: a turtle walks an L-system string. F-like letters step forward, + turns left and − right.
+     Ends pins the first and last points so a changing step count folds the curve in place; closed curves fit
+     a box instead. Max keeps a single row under about 120 000 segments. */
+  dragon: {
+    title: 'Heighway dragon',
+    defaults: ['12'],
+    labels: ['Folds'],
+    hint: 'Fold a strip of paper in half again and again, then open every fold to a right angle',
+    rule: 'F → F+G, G → F−G, 90°',
+    curve: {
+      axiom: 'F',
+      rules: { F: 'F+G', G: 'F-G' },
+      angle: 90,
+      draw: 'FG',
+      max: 16,
+      ends: [-1.5, 1.5, -0.4],
+    },
+  },
+  levy: {
+    title: 'Lévy C curve',
+    defaults: ['12'],
+    labels: ['Steps'],
+    hint: 'Replace every segment with the two short sides of a right isosceles triangle',
+    rule: 'F → +F−−F+, 45°',
+    curve: { axiom: 'F', rules: { F: '+F--F+' }, angle: 45, draw: 'F', max: 16, ends: [-1.5, 1.5, -0.6] },
+  },
+  koch: {
+    title: 'Koch snowflake',
+    defaults: ['4'],
+    labels: ['Steps'],
+    hint: 'Raise a triangle on the middle third of every side: a finite area inside an infinite perimeter',
+    rule: 'F → F+F−−F+F, 60°',
+    curve: { axiom: 'F--F--F', rules: { F: 'F+F--F+F' }, angle: 60, draw: 'F', max: 7 },
+  },
+  arrowhead: {
+    title: 'Sierpiński arrowhead',
+    defaults: ['7'],
+    labels: ['Steps'],
+    hint: 'One unbroken path that converges on the Sierpiński triangle',
+    rule: 'A → B−A−B, B → A+B+A, 60°',
+    curve: {
+      axiom: 'A',
+      rules: { A: 'B-A-B', B: 'A+B+A' },
+      angle: 60,
+      draw: 'AB',
+      max: 10,
+      ends: [-2, 2, -1.6],
+    },
+  },
+  hilbert: {
+    title: 'Hilbert curve',
+    defaults: ['5'],
+    labels: ['Steps'],
+    hint: 'A path through every cell of a grid that keeps neighbours close: in the limit it fills the square',
+    rule: 'A → +BF−AFA−FB+, B → −AF+BFB+FA−, 90°',
+    curve: {
+      axiom: 'A',
+      rules: { A: '+BF-AFA-FB+', B: '-AF+BFB+FA-' },
+      angle: 90,
+      draw: 'F',
+      max: 8,
+      ends: [-1.8, 1.8, -1.8],
+    },
+  },
+  gosper: {
+    title: 'Gosper flowsnake',
+    defaults: ['4'],
+    labels: ['Steps'],
+    hint: 'Seven copies of itself tile a hexagonal island with a fractal coast',
+    rule: 'A → A−B−−B+A++AA+B−, 60°',
+    curve: {
+      axiom: 'A',
+      rules: { A: 'A-B--B+A++AA+B-', B: '+A-BB--B-A++A+B' },
+      angle: 60,
+      draw: 'AB',
+      max: 6,
+      ends: [-1.6, 1.6, 0],
+    },
+  },
 };
 export const fractalText = family => `fractal(${family}, ${FRACTALS[family].defaults.join(', ')})`;
+const curves = new Map();
+/* World coordinates of a self-similar curve after n rewriting steps, as [x0, y0, x1, y1, …]. */
+export function curvePoints(family, n) {
+  const key = family + n;
+  if (curves.has(key)) return curves.get(key);
+  const c = FRACTALS[family].curve;
+  let s = c.axiom;
+  for (let i = 0; i < n; i++) {
+    let next = '';
+    for (const ch of s) next += c.rules[ch] ?? ch;
+    s = next;
+  }
+  const turns = Math.round(360 / c.angle),
+    cos = Array.from({ length: turns }, (_, i) => Math.cos((2 * Math.PI * i) / turns)),
+    sin = Array.from({ length: turns }, (_, i) => Math.sin((2 * Math.PI * i) / turns));
+  let steps = 0;
+  for (const ch of s) if (c.draw.includes(ch)) steps++;
+  const p = new Float64Array(2 * steps + 2);
+  let x = 0,
+    y = 0,
+    d = 0,
+    at = 2;
+  for (const ch of s) {
+    if (ch === '+') d = (d + 1) % turns;
+    else if (ch === '-') d = (d + turns - 1) % turns;
+    else if (c.draw.includes(ch)) {
+      x += cos[d];
+      y += sin[d];
+      p[at++] = x;
+      p[at++] = y;
+    }
+  }
+  if (c.ends) {
+    // A similarity that sends the first point to (x0, h) and the last to (x1, h), with the bulk of the
+    // curve above that line.
+    const [x0, x1, h] = c.ends,
+      ex = p[p.length - 2],
+      ey = p[p.length - 1],
+      L2 = ex * ex + ey * ey || 1,
+      a = ((x1 - x0) * ex) / L2,
+      b = (-(x1 - x0) * ey) / L2;
+    let lift = 0;
+    for (let i = 0; i < p.length; i += 2) {
+      const u = a * p[i] - b * p[i + 1],
+        v = b * p[i] + a * p[i + 1];
+      p[i] = x0 + u;
+      p[i + 1] = v;
+      lift += v;
+    }
+    const flip = lift < 0 ? -1 : 1;
+    for (let i = 1; i < p.length; i += 2) p[i] = h + flip * p[i];
+  } else {
+    const [x0, x1, y0, y1] = curveBounds(p),
+      k = 4 / Math.max(x1 - x0, y1 - y0),
+      mx = (x0 + x1) / 2,
+      my = (y0 + y1) / 2;
+    for (let i = 0; i < p.length; i += 2) {
+      p[i] = (p[i] - mx) * k;
+      p[i + 1] = (p[i + 1] - my) * k;
+    }
+  }
+  if (curves.size > 24) curves.delete(curves.keys().next().value);
+  curves.set(key, p);
+  return p;
+}
+export function curveBounds(p) {
+  let x0 = Infinity,
+    x1 = -Infinity,
+    y0 = Infinity,
+    y1 = -Infinity;
+  for (let i = 0; i < p.length; i += 2) {
+    x0 = Math.min(x0, p[i]);
+    x1 = Math.max(x1, p[i]);
+    y0 = Math.min(y0, p[i + 1]);
+    y1 = Math.max(y1, p[i + 1]);
+  }
+  return [x0, x1, y0, y1];
+}
 export function parseFractal(t, filter, cp) {
   const m = t.match(/^fractal\s*\((.*)\)$/i);
   if (!m) return null;
@@ -65,7 +222,7 @@ export function parseFractal(t, filter, cp) {
   if (!spec) throw Error('Unknown fractal family. Type fractal( to browse.');
   if (a.length > spec.defaults.length) throw Error('Use ' + `fractal(${family}, ${spec.labels.join(', ')})`);
   return {
-    type: 'fractal',
+    type: spec.curve ? 'lsys' : 'fractal',
     family,
     args: spec.defaults.map((v, i) => cp(a[i] || v)),
   };
@@ -111,19 +268,20 @@ export function sampleFractalRow(job, field, j) {
     field[j * w + i] = escapeSample((((i + 0.5) * width) / w - view.cx) / view.s, y, p);
 }
 
-const EMBER = [255, 120, 59],
-  IVORY = [238, 222, 195];
-// Contour lines of smooth escape time, every fifth one warmer and brighter.
+const SHADE = { bg: [7, 7, 7], ink: [238, 222, 195], em: [255, 120, 59] };
+// Contour lines of smooth escape time, every fifth one in the accent colour. job.shade holds the theme's
+// background, line and accent colours; lines blend from the background, so light themes darken instead.
 export function shadeFractalRow(job, field, data, j) {
-  const { w, h } = job;
+  const { w, h } = job,
+    { bg, ink, em } = job.shade || SHADE;
   for (let i = 0; i < w; i++) {
     const index = j * w + i,
       at = index * 4,
       v = field[index];
     if (v < 0) {
-      data[at] = 7;
-      data[at + 1] = 7;
-      data[at + 2] = 7;
+      data[at] = bg[0];
+      data[at + 1] = bg[1];
+      data[at + 2] = bg[2];
       data[at + 3] = 255;
       continue;
     }
@@ -142,8 +300,9 @@ export function shadeFractalRow(job, field, data, j) {
       fade = Math.min(1, Math.max(0, v / 9)),
       warm = major ? 0.85 : 0.28;
     for (let c = 0; c < 3; c++) {
-      const ink = IVORY[c] * (1 - warm) + EMBER[c] * warm;
-      data[at + c] = Math.min(255, 7 + fade * (ink * line * (major ? 0.85 : 0.49) + EMBER[c] * glow * 0.085));
+      const tone = ink[c] * (1 - warm) + em[c] * warm;
+      data[at + c] =
+        bg[c] + fade * ((tone - bg[c]) * line * (major ? 0.85 : 0.49) + (em[c] - bg[c]) * glow * 0.085);
     }
     data[at + 3] = 255;
   }

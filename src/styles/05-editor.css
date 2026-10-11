@@ -37,7 +37,7 @@
   min-width: 0.55em;
   min-height: 1em;
   vertical-align: middle;
-  background: rgba(255, 255, 255, 0.08);
+  background: rgb(var(--fg-rgb) / 0.08);
   border-radius: 2px;
 }
 .mq .gh {
@@ -96,9 +96,9 @@
 }
 /* Ctrl+A selects the whole expression. */
 .mq.all > .blk {
-  background: #ff783b38;
+  background: rgb(var(--em-rgb) / 0.22);
   border-radius: 3px;
-  box-shadow: 0 0 0 2px #ff783b38;
+  box-shadow: 0 0 0 2px rgb(var(--em-rgb) / 0.22);
 }
 .mq.all .cur {
   display: none;
@@ -135,12 +135,12 @@
 .mq > .blk.e:after {
   content: 'Type an equation';
   font: 13px var(--mono);
-  color: #77736e;
+  color: var(--dim);
 }
 .equation-display:empty:before {
   content: 'Type an equation';
   font: 13px var(--mono);
-  color: #77736e;
+  color: var(--dim);
 }
 .mq {
   overflow-wrap: normal;

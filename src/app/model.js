@@ -713,7 +713,7 @@ function rebuildRows({ reset = false } = {}, held = null) {
           },
         });
       const allowed = new Set(
-        r.k.type === 'fractal' || r.k.type === 'const' || r.k.type === 'pt' || r.k.type === 'pts'
+        ['fractal', 'lsys', 'const', 'pt', 'pts'].includes(r.k.type)
           ? []
           : r.k.type === 'polar'
             ? ['theta', 'r', 'x', 'y']
@@ -1249,7 +1249,7 @@ export function setVar(n, v) {
       if (r.cardVer !== r.geoVer) geoUI(r);
     }
     decorate(r);
-    if (r.k?.type === 'fractal') {
+    if (r.k?.type === 'fractal' || r.k?.type === 'lsys') {
       r.err = '';
       r.slEl?.querySelector('.fractal-card')?.remove();
       fractalControls(r);
@@ -1532,6 +1532,14 @@ export function fractalParams(r) {
     power,
     iterations,
   };
+}
+export function curveSteps(r) {
+  const spec = FRACTALS[r.k.family],
+    v = val(r.k.args[0]),
+    n = Math.round(v);
+  if (!(Math.abs(v - n) < 1e-9) || n < 0 || n > spec.curve.max)
+    throw Error(`${spec.labels[0]} must be a whole number from 0 to ${spec.curve.max}`);
+  return n;
 }
 /* While an expression is being typed, a half-finished one is drawn as the closest complete one: a trailing
    operator is dropped (2x + reads as 2x, x^ as x), an empty input or coordinate counts as 0, and open

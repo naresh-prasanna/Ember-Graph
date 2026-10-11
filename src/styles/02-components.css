@@ -2,13 +2,13 @@
 .fractal-card {
   margin-top: 12px;
   padding: 12px;
-  background: #ff783b08;
-  border: 1px solid #ff783b22;
+  background: rgb(var(--em-rgb) / 0.031);
+  border: 1px solid rgb(var(--em-rgb) / 0.133);
   border-radius: 8px;
   font: 10px/1.7 var(--mono);
 }
 .fractal-card strong {
-  color: #efb891;
+  color: var(--em-soft);
   letter-spacing: 1px;
 }
 .fractal-card p {
@@ -23,7 +23,7 @@
 }
 .fractal-card input {
   width: 90px;
-  background: #111;
+  background: var(--pan);
   border: 1px solid var(--ln);
   color: var(--ink);
   padding: 4px;
@@ -56,20 +56,20 @@
   margin: 14px 0;
   padding: 22px 16px;
   text-align: center;
-  border: 1px dashed #ffffff26;
+  border: 1px dashed rgb(var(--fg-rgb) / 0.149);
   border-radius: 10px;
-  background: #ffffff04;
+  background: rgb(var(--fg-rgb) / 0.016);
   transition:
     border-color 0.15s,
     background 0.15s;
 }
 .ggb-drop.over {
   border-color: var(--em);
-  background: #ff783b10;
+  background: rgb(var(--em-rgb) / 0.063);
 }
 .ggb-drop strong {
   font: 500 13px var(--sans);
-  color: #eee5d9;
+  color: var(--ink);
 }
 .ggb-drop span {
   font: 11px var(--mono);
@@ -84,10 +84,10 @@
   display: none;
 }
 #ggb-status {
-  color: #e6dacb;
+  color: var(--ink);
 }
 #ggb-status.bad {
-  color: #ffb08c;
+  color: var(--em-soft);
 }
 #ggb-details summary {
   cursor: pointer;
@@ -98,14 +98,14 @@
 #completions {
   position: fixed;
   z-index: 50;
-  background: rgba(12, 11, 10, 0.97);
-  border: 1px solid #b18a623d;
+  background: rgb(var(--sf-rgb) / 0.97);
+  border: 1px solid color-mix(in srgb, var(--em-2) 24%, transparent);
   border-radius: 9px;
   padding: 7px;
   overflow-y: auto;
   box-shadow:
     0 20px 65px #000b,
-    0 0 30px #ff783b08;
+    0 0 30px rgb(var(--em-rgb) / 0.031);
   backdrop-filter: blur(18px);
   font: 11px var(--mono);
 }
@@ -116,7 +116,7 @@
   padding: 7px 8px 10px;
   font-size: 8px;
   letter-spacing: 0.8px;
-  color: #8b8177;
+  color: var(--dim);
 }
 .completion-option {
   position: relative;
@@ -129,48 +129,48 @@
   display: block;
   font-size: 12px;
   font-weight: 500;
-  color: #d6c7b6;
+  color: var(--ink-2);
 }
 .completion-option span {
   display: block;
   font-size: 9px;
   line-height: 1.5;
   margin-top: 5px;
-  color: #8d8174;
+  color: var(--dim);
 }
 .completion-option b {
   position: absolute;
   right: 10px;
   top: 12px;
-  color: #67564a;
+  color: var(--dim);
 }
 .completion-option[aria-selected='true'] {
-  background: linear-gradient(90deg, #ff783b26, #ff783b04);
-  border-left-color: #ff783b;
+  background: linear-gradient(90deg, rgb(var(--em-rgb) / 0.149), rgb(var(--em-rgb) / 0.016));
+  border-left-color: var(--em);
 }
 .completion-option[aria-selected='true'] strong,
 .completion-option[aria-selected='true'] b {
-  color: #ff935d;
-  text-shadow: 0 0 15px #ff783b55;
+  color: var(--em-2);
+  text-shadow: 0 0 15px rgb(var(--em-rgb) / 0.333);
 }
 .fractal-card {
   padding: 10px;
   border: 0;
-  border-top: 1px solid #ff783b24;
+  border-top: 1px solid rgb(var(--em-rgb) / 0.141);
   border-radius: 0;
   background: transparent;
 }
 .fractal-card select {
   max-width: 142px;
-  background: #15120f;
-  color: #e5c2a4;
-  border: 1px solid #ffffff18;
+  background: var(--pan);
+  color: var(--ink-2);
+  border: 1px solid rgb(var(--fg-rgb) / 0.094);
   padding: 5px;
   font: 10px var(--mono);
   border-radius: 4px;
 }
 .fractal-card .fractal-rule {
-  color: #bbaa97;
+  color: var(--ink-3);
   font-size: 10px;
   margin: 10px 0;
 }

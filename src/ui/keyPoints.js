@@ -2,6 +2,7 @@ import { local } from '../app/interaction.js';
 import { parameterBounds, rowCopies, val } from '../app/model.js';
 import { BRANCH } from '../math/parser.js';
 import { S } from '../app/state.js';
+import { T, tone } from '../app/theme.js';
 import { $, ctx, cv } from '../core/dom.js';
 import { fmt } from '../math/format.js';
 import { findImplicitPoints, findKeyPoints, findParametricPoints } from '../math/keyPoints.js';
@@ -145,10 +146,10 @@ export function drawKeyPoints() {
     ctx.beginPath();
     ctx.arc(x, y, p === kpHover ? 4.6 : 2.8, 0, 7);
     ctx.globalAlpha = p === kpHover ? 1 : 0.85;
-    ctx.fillStyle = p.t === 'intersection' ? '#fff1d6' : p.c;
+    ctx.fillStyle = p.t === 'intersection' ? T.tipInk : tone(p.c);
     ctx.fill();
     ctx.lineWidth = 1.4;
-    ctx.strokeStyle = '#0b0b0c';
+    ctx.strokeStyle = T.bg;
     ctx.stroke();
   }
   ctx.globalAlpha = 1;
@@ -164,9 +165,9 @@ export function drawKeyPoints() {
       w = ctx.measureText(t).width,
       lx = Math.max(4, Math.min(x + 10, S.W - w - 14)),
       ly = Math.max(14, y - 19);
-    ctx.fillStyle = '#070707e8';
+    ctx.fillStyle = T.tipBg;
     ctx.fillRect(lx - 4, ly - 10, w + 8, 20);
-    ctx.fillStyle = '#fff1d6';
+    ctx.fillStyle = T.tipInk;
     ctx.fillText(t, lx, ly);
   }
   ctx.restore();

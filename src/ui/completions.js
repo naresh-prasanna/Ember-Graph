@@ -8,6 +8,8 @@ import { LONG_FORMS, NAMES, nameMatch } from '../math/names.js';
 import { productName } from '../math/parser.js';
 import { FN_HELP } from './keyHelp.js';
 import { NEW, del, replaceRow } from './panel.js';
+import { THEMES } from '../app/theme.js';
+import { chooseTheme } from './themeMenu.js';
 
 const REG = [
   ['Linear', 'y ~ m*x+b'],
@@ -303,7 +305,18 @@ const click = id => () => $(id).click(),
       ['audiotrace', 'audio', 'sonify', 'listen'],
       click('#trace'),
     ],
-    ['High contrast', 'Switch high-contrast colours on or off', ['highcontrast', 'contrast'], click('#hc')],
+    ...Object.entries(THEMES).map(([id, t]) => [
+      `${t.name} theme`,
+      t.note,
+      [
+        id + 'theme',
+        id,
+        'theme',
+        ...(id === 'contrast' ? ['highcontrast'] : []),
+        ...(id === 'safe' ? ['colourblind', 'colorblind'] : []),
+      ],
+      () => chooseTheme(id),
+    ]),
   ];
 // Name suggestions take Enter straight away; whole-row templates only after the user has picked one.
 export const enterAccepts = () => !!S.completion && (S.completion.navigated || S.completion.items[0].word);

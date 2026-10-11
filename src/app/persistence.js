@@ -1,5 +1,5 @@
 import { makeRow, rebuild } from './model.js';
-import { sceneLabels } from './scenes.js';
+import { knownScene, sceneLabels } from './scenes.js';
 import { S } from './state.js';
 import { nullObj, reserved } from '../math/catalog.js';
 import { isGeoText } from '../io/geogebraEval.js';
@@ -141,7 +141,7 @@ export function validateState(o) {
 }
 export function loadState(o) {
   const s = validateState(o);
-  if (['orbit', 'waves', 'terrain'].includes(o.scene)) S.activeScene = o.scene;
+  S.activeScene = knownScene(o.scene) ? o.scene : null;
   if (typeof o.construction === 'boolean') S.construction = o.construction;
   S.playing.clear();
   S.sparks = [];

@@ -1,10 +1,9 @@
 import { nullObj } from '../math/catalog.js';
 
 export const PAL = ['#ff783b', '#d9c8ad', '#a79886', '#cf9b73', '#91b5b2', '#b2a8c3'];
-export const sceneMemory = new Map();
 export const reduceMotion = matchMedia('(prefers-reduced-motion: reduce)').matches;
 export const S = {
-  activeScene: 'orbit',
+  activeScene: 'blank',
   presentation: false,
   construction: true,
   drifting: false,

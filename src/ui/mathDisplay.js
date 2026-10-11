@@ -343,6 +343,11 @@ export const astHTML = ast => R(ast).h;
 // An unfilled box of ∫, Σ or ⁿ√ is saved as an empty argument; it is drawn as an empty box, not as text.
 const SLOT = '_slot';
 export function pretty(text) {
+  const fractal = text.match(/^\s*fractal\s*\((.*)\)\s*$/i);
+  if (fractal) {
+    const [family = '', ...args] = splitTop(fractal[1]).map(s => s.trim());
+    return `fractal(${[prettyBase(family), ...args.map(pretty)].join(', ')})`;
+  }
   // As maths dy/dx reads (d·y/d)·x; at the start of a differential equation it is the derivative.
   text = textNotation(text).replace(/^\s*dy\s*\/\s*dx(?=\s*=)/, '(dy)/(dx)');
   try {

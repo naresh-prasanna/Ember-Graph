@@ -2,6 +2,7 @@ import {
   colorVariables,
   columnColour,
   compile,
+  curveSteps,
   defaultStep,
   fractalParams,
   geoValue,
@@ -16,13 +17,14 @@ import {
 import { saveSoon } from '../app/persistence.js';
 import { frameFractal } from '../app/scenes.js';
 import { PAL, S } from '../app/state.js';
+import { tone } from '../app/theme.js';
 import { $ } from '../core/dom.js';
 import { makeEditor } from '../editor/mathEditor.js';
 import { SYM, own } from '../math/catalog.js';
 import { fmt } from '../math/format.js';
 import { isGeoText } from '../io/geogebraEval.js';
 import { boxCells, boxDimension, defaultBoxSize } from '../math/boxCount.js';
-import { FRACTALS, fractalText } from '../math/fractals.js';
+import { FRACTALS, curvePoints, fractalText } from '../math/fractals.js';
 import { derivativeSteps, integralSteps, odeSteps } from '../math/symbolic.js';
 import { FITS, columnName, emptyTable, fitEquation, isTableText, writeTable } from '../math/table.js';
 import { kick } from '../render/renderer.js';
@@ -1042,7 +1044,7 @@ function focusTableCell(r, i, j, caret) {
 }
 export function decorate(r) {
   const row = r.inp?.closest('.row');
-  row?.style.setProperty('--curve', r.k?.type === 'fractal' ? '#ff783b' : r.col);
+  row?.style.setProperty('--curve', tone(r.k?.type === 'fractal' ? '#ff783b' : r.col));
   row?.classList.toggle('blank', !r.text.trim());
   if (r.preview && isTableText(r.text)) r.preview.textContent = 'Table';
   else if (r.preview && isGeoText(r.text)) r.preview.textContent = 'GeoGebra object';
@@ -1057,6 +1059,7 @@ export function decorate(r) {
     r.label.textContent =
       ({
         fractal: 'Fractal',
+        lsys: 'Fractal curve',
         const: 'Parameter',
         function: 'Function',
         cart: 'Function',
@@ -1128,7 +1131,7 @@ function mountRow(r) {
   const i = S.rows.indexOf(r);
   const el = document.createElement('div');
   el.className = 'row' + (r.off ? ' off' : '');
-  el.style.setProperty('--curve', r.col);
+  el.style.setProperty('--curve', tone(r.col));
   el.innerHTML =
     '<div class="gut"><span class="idx"></span><button class="dot" aria-label="Show or hide"></button></div><div class="col"><div class="row-label"></div><div class="entry"><div class="equation-display" aria-hidden="true"></div><input type="text" spellcheck="false" autocomplete="off" autocapitalize="off" placeholder="Type an equation"></div><div class="err" role="status"></div><div class="sls"></div></div><button class="x" aria-label="Delete">×</button>';
   el.querySelector('.idx').textContent = i + 1;
@@ -1241,7 +1244,9 @@ function colorMenu(r, anchor) {
   menu.ariaLabel = 'Curve colour';
   section(
     'Colour',
-    PAL.map(c => swatch(c, c, !r.colVar && c.toLowerCase() === r.col.toLowerCase(), () => set(c))),
+    PAL.map(c =>
+      swatch(tone(c), tone(c), !r.colVar && c.toLowerCase() === r.col.toLowerCase(), () => set(c)),
+    ),
   );
   section(
     'From a variable',
@@ -1326,10 +1331,11 @@ export function del(i) {
   S.rows[Math.max(0, i - 1)].inp.focus();
 }
 export function fractalControls(r) {
-  if (r.k?.type !== 'fractal' || r.err) return;
+  const curve = r.k?.type === 'lsys';
+  if ((r.k?.type !== 'fractal' && !curve) || r.err) return;
   let p;
   try {
-    p = fractalParams(r);
+    p = curve ? { family: r.k.family, steps: curveSteps(r) } : fractalParams(r);
   } catch (e) {
     r.err = e.message;
     showError(r);
@@ -1368,7 +1374,11 @@ export function fractalControls(r) {
     input.type = 'number';
     input.setAttribute('aria-label', name);
     input.value = val(r.k.args[i]);
-    input.step = name === 'Iterations' ? '16' : name === 'Power' ? '1' : '0.01';
+    input.step = name === 'Iterations' ? '16' : name === 'Power' || curve ? '1' : '0.01';
+    if (curve) {
+      input.min = 0;
+      input.max = spec.curve.max;
+    }
     if (name === 'Iterations') {
       input.min = 16;
       input.max = 1200;
@@ -1391,11 +1401,12 @@ export function fractalControls(r) {
     summary = document.createElement('summary');
   summary.textContent = 'About this fractal';
   const description = document.createElement('p');
-  description.textContent =
-    spec.hint +
-    '. ' +
-    (p.julia ? 'Each pixel is z₀; c is the seed.' : 'z₀ = 0; each pixel is c.') +
-    ' Dark regions did not escape within the iteration limit. Contours show smooth escape time, not the orbit of a single point.';
+  description.textContent = curve
+    ? `${spec.hint}. Each step rewrites every letter by the rule; F, G, A and B draw one segment, + and − turn. This one has ${fmt((curvePoints(p.family, p.steps).length - 2) / 2)} segments.`
+    : spec.hint +
+      '. ' +
+      (p.julia ? 'Each pixel is z₀; c is the seed.' : 'z₀ = 0; each pixel is c.') +
+      ' Dark regions did not escape within the iteration limit. Contours show smooth escape time, not the orbit of a single point.';
   detail.append(summary, description);
   box.append(detail);
   const button = document.createElement('button');

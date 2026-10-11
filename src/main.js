@@ -7,6 +7,7 @@ import './styles/06-typesetting.css';
 import './styles/07-list.css';
 import './styles/08-scale.css';
 import './styles/09-keypad.css';
+import './styles/10-themes.css';
 
 import { registerSW } from 'virtual:pwa-register';
 import { boot } from './app/boot.js';
@@ -24,9 +25,13 @@ import { initKeypad } from './ui/keypad.js';
 import { initMatrixDialog } from './ui/matrixDialog.js';
 import { initPanel } from './ui/panel.js';
 import { initSidePanel } from './ui/sidePanel.js';
+import { initThemes } from './ui/themeMenu.js';
+import { savedTheme, setTheme } from './app/theme.js';
 
+setTheme(savedTheme(), false);
 initPanel();
 initSidePanel();
+initThemes();
 initControls();
 initDialogs();
 initInteraction();
@@ -41,6 +46,9 @@ initHistory();
 initKeyPoints();
 initFps();
 kick();
+requestAnimationFrame(() =>
+  requestAnimationFrame(() => document.documentElement.classList.remove('preload')),
+);
 
 registerSW({
   onOfflineReady: () => notice('Ember is ready to work offline.'),

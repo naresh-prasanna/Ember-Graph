@@ -62,10 +62,6 @@ export function initControls() {
     $('#motion').setAttribute('aria-pressed', String(camera.enabled));
     kick();
   };
-  $('#hc').onclick = () => {
-    const on = document.body.classList.toggle('hc');
-    $('#hc').setAttribute('aria-pressed', String(on));
-  };
   $('#read').onclick = () => {
     if (!('speechSynthesis' in window)) {
       notice('Speech is not supported in this browser');

@@ -2,6 +2,7 @@ import { geo, morphStep, surfaceMesh } from '../app/geometry.js';
 import { liveTrace } from '../app/interaction.js';
 import { parameter, setVar } from '../app/model.js';
 import { S, reduceMotion } from '../app/state.js';
+import { T, tone } from '../app/theme.js';
 import { $, ctx, cv } from '../core/dom.js';
 import { revealGeometry } from '../math/contours.js';
 import { complexText } from '../math/complex.js';
@@ -34,9 +35,9 @@ function grid() {
     }
     ctx.stroke();
   }
-  if ((st * S.V.s) / 5 > 11) lines(st / 5, 'rgba(200,195,181,.043)');
-  lines(st, 'rgba(213,207,195,.09)');
-  ctx.strokeStyle = 'rgba(216,189,160,.36)';
+  if ((st * S.V.s) / 5 > 11) lines(st / 5, T.gridMinor);
+  lines(st, T.gridMajor);
+  ctx.strokeStyle = T.axis;
   ctx.lineWidth = 0.8;
   ctx.beginPath();
   ctx.moveTo(0, S.V.cy);
@@ -45,7 +46,7 @@ function grid() {
   ctx.lineTo(S.V.cx, S.H);
   ctx.stroke();
   ctx.font = '10px monospace';
-  ctx.fillStyle = 'rgba(208,199,184,.47)';
+  ctx.fillStyle = T.label;
   ctx.textAlign = 'center';
   ctx.textBaseline = 'top';
   ctx.beginPath();
@@ -69,7 +70,7 @@ function grid() {
   ctx.stroke();
   if (argand) {
     ctx.font = 'italic 12px Georgia, serif';
-    ctx.fillStyle = 'rgba(232,214,190,.62)';
+    ctx.fillStyle = T.labelStrong;
     ctx.textBaseline = 'bottom';
     // Clear of the tool column when the real axis runs behind it.
     const c = ctx.canvas.getBoundingClientRect(),
@@ -81,7 +82,7 @@ function grid() {
     ctx.textBaseline = 'top';
     if (S.V.cx > 0 && S.V.cx < S.W - 30) ctx.fillText('Im', S.V.cx + 9, 58);
   }
-  ctx.strokeStyle = '#cdbba6';
+  ctx.strokeStyle = T.origin;
   ctx.beginPath();
   ctx.arc(S.V.cx, S.V.cy, 3, 0, Math.PI * 2);
   ctx.stroke();
@@ -133,7 +134,7 @@ function orbitGuides() {
   ctx.textBaseline = 'middle';
   ctx.textAlign = 'center';
   ctx.lineWidth = 0.7;
-  ctx.fillStyle = 'rgba(210,188,163,.53)';
+  ctx.fillStyle = T.guideText;
   // Every tick in one stroke and every spoke in another: a stroke apiece cost the GPU more than the curves did.
   const ticks = new Path2D(),
     spokes = new Path2D();
@@ -150,14 +151,14 @@ function orbitGuides() {
       spokes.lineTo(x + (R - 8) * co, y - (R - 8) * si);
     }
   }
-  ctx.strokeStyle = 'rgba(197,184,165,.24)';
+  ctx.strokeStyle = T.guideTick;
   ctx.stroke(ticks);
   ctx.setLineDash([3, 7]);
-  ctx.strokeStyle = 'rgba(221,139,87,.16)';
+  ctx.strokeStyle = T.guideSpoke;
   ctx.stroke(spokes);
   ctx.setLineDash([]);
   const yy = y + R + 64;
-  ctx.strokeStyle = 'rgba(218,190,157,.3)';
+  ctx.strokeStyle = T.guideLine;
   ctx.beginPath();
   ctx.moveTo(x - R, y + 10);
   ctx.lineTo(x - R, yy + 7);
@@ -172,26 +173,26 @@ function orbitGuides() {
   ctx.lineTo(x + R, yy);
   ctx.lineTo(x + R - 5, yy + 3);
   ctx.stroke();
-  ctx.fillStyle = '#a9947c';
   const label = '⌀ ' + fmt(2 * a);
-  ctx.fillStyle = '#090a0b';
+  ctx.fillStyle = T.bg;
   ctx.fillRect(x - 32, yy - 10, 64, 20);
-  ctx.fillStyle = '#ad9981';
+  ctx.fillStyle = T.guideLabel;
   ctx.fillText(label, x, yy);
   ctx.textAlign = 'left';
-  ctx.fillStyle = '#81776b';
+  ctx.fillStyle = T.guideMuted;
   ctx.fillText('C (' + fmt((x - S.V.cx) / S.V.s) + ', ' + fmt((S.V.cy - y) / S.V.s) + ')', x + 13, y + 22);
   ctx.restore();
 }
 function atmosphere() {
-  ctx.fillStyle = '#08090a';
+  ctx.fillStyle = T.bg;
   ctx.fillRect(0, 0, S.W, S.H);
+  if (!T.sky) return;
   const x = S.mode3 ? S.W * 0.6 : S.V.cx,
     y = S.mode3 ? S.H * 0.55 : S.V.cy;
   const g = ctx.createRadialGradient(x, y, 10, x, y, Math.max(S.W, S.H) * 0.65);
-  g.addColorStop(0, 'rgba(87,46,25,.075)');
-  g.addColorStop(0.55, 'rgba(27,28,29,.03)');
-  g.addColorStop(1, 'rgba(0,0,0,.3)');
+  g.addColorStop(0, T.sky[0]);
+  g.addColorStop(0.55, T.sky[1]);
+  g.addColorStop(1, T.sky[2]);
   ctx.fillStyle = g;
   ctx.fillRect(0, 0, S.W, S.H);
 }
@@ -199,7 +200,7 @@ function atmosphere() {
 function drawGuides(paths, col, alpha) {
   ctx.save();
   ctx.setLineDash([4, 5]);
-  ctx.strokeStyle = rgba(col, 0.42 * alpha);
+  ctx.strokeStyle = rgba(tone(col), 0.42 * alpha);
   ctx.lineWidth = 1;
   ctx.beginPath();
   for (const L of paths) {
@@ -209,17 +210,19 @@ function drawGuides(paths, col, alpha) {
   ctx.stroke();
   ctx.restore();
 }
-function glow(path, col, width = 1.15) {
+function glow(path, raw, width = 1.15) {
+  const col = tone(raw);
+  width += T.width;
   // A translucent, additive stroke across the screen costs the GPU a couple of milliseconds to rasterize, an
   // opaque one about a third of that, so while the view moves each curve is one plain stroke: forty glowing
   // curves took 300 ms a frame. The glow comes back on the frame after the view settles.
-  if (S.fast) {
+  if (S.fast || !T.glow) {
     ctx.strokeStyle = col;
     ctx.lineWidth = width;
     ctx.stroke(path);
     return;
   }
-  ctx.globalCompositeOperation = 'lighter';
+  ctx.globalCompositeOperation = T.blend;
   ctx.strokeStyle = rgba(col, 0.035);
   ctx.lineWidth = width + 12;
   ctx.stroke(path);
@@ -228,7 +231,7 @@ function glow(path, col, width = 1.15) {
   ctx.stroke(path);
   // A tight halo in strokes rather than shadowBlur, which costs the whole area a path spans on every frame:
   // tan(x) spans the screen, and blurring it alone took longer than a frame.
-  const hot = col === '#ff783b';
+  const hot = raw === '#ff783b';
   ctx.strokeStyle = rgba(col, hot ? 0.13 : 0.12);
   ctx.lineWidth = width + (hot ? 2.6 : 1.8);
   ctx.stroke(path);
@@ -318,7 +321,7 @@ function burst(p, col) {
       vy: Math.sin(a) * s - 45,
       life: 0,
       max: (hot ? 0.7 : 0.45) + Math.random() * 0.8,
-      col: hot ? '#ffe6bd' : col,
+      col: hot ? T.hot : col,
       w: hot ? 1.3 : 0.8,
     });
   }
@@ -394,7 +397,7 @@ export function shatter(g, col, shown = 1) {
       vy: Math.sin(a) * s - 40 - Math.random() * 50,
       life: 0,
       max: 0.7 + Math.random() * (hot ? 1.1 : 0.8),
-      col: hot ? '#ffe6bd' : col,
+      col: hot ? T.hot : col,
       w: hot ? 1.1 : 0.75,
     });
   }
@@ -416,9 +419,9 @@ function drawAshes(dt) {
     ctx.globalAlpha = left * left;
     glow(a.path, a.col, 1.15 / f);
     // The first instant runs white-hot, as if the curve caught fire.
-    ctx.globalCompositeOperation = 'lighter';
+    ctx.globalCompositeOperation = T.blend;
     ctx.globalAlpha = Math.max(0, 1 - a.t / 0.18) * 0.7;
-    ctx.strokeStyle = '#ffe6bd';
+    ctx.strokeStyle = T.hot;
     ctx.lineWidth = 1.8 / f;
     ctx.stroke(a.path);
     ctx.restore();
@@ -445,13 +448,14 @@ function drawSeal(r, dt) {
   if (s.closed) {
     const flash = Math.exp(-s.t * 9);
     ctx.save();
-    ctx.globalCompositeOperation = 'lighter';
+    ctx.globalCompositeOperation = T.blend;
     halo(p, r.col, 46, flash);
     ctx.restore();
   }
 }
 // Box count overlay: the squares the drawing touches, plus the grid they belong to.
-function drawBoxes({ cells, s }, col) {
+function drawBoxes({ cells, s }, raw) {
+  const col = tone(raw);
   const px = s * S.V.s;
   if (px < 1.5) return;
   let i0 = Infinity,
@@ -488,7 +492,7 @@ function drawBoxes({ cells, s }, col) {
     ctx.moveTo(S.V.cx + (i0 - 1) * px, S.V.cy - j * px);
     ctx.lineTo(S.V.cx + (i1 + 2) * px, S.V.cy - j * px);
   }
-  ctx.strokeStyle = 'rgba(230,220,205,.07)';
+  ctx.strokeStyle = T.boxGrid;
   ctx.lineWidth = 0.6;
   ctx.stroke();
 }
@@ -526,6 +530,7 @@ function stillKey() {
     S.fast,
     S.construction,
     S.activeScene,
+    T.id,
   ].join();
   for (const r of S.rows) {
     key += `|${r.id},${r.off},${!!r.err},${r.col},${idOf(r.k)},${idOf(r.g)},${idOf(r.fractal)},${idOf(r.box?.on && r.box.cells)}`;
@@ -570,7 +575,8 @@ function drawScene(dt) {
         busy = true;
         r.seal = null;
       }
-      const shown = tracing ? revealFraction(r, g) : 1;
+      const shown = tracing ? revealFraction(r, g) : 1,
+        col = tone(r.col);
       r.shown = shown;
       const m = shift(r),
         at = p => (m ? [p[0] * m.a + m.e, p[1] * m.d + m.f] : p);
@@ -585,14 +591,14 @@ function drawScene(dt) {
             F.closePath();
           }
         }
-        ctx.fillStyle = rgba(r.col, 0.16 * r.prog);
+        ctx.fillStyle = rgba(col, 0.16 * r.prog);
         ctx.fill(moved(F, m));
       } else if (g.fill) {
-        ctx.fillStyle = rgba(r.col, 0.055 * r.prog * (r.m ? 0.35 : 1));
+        ctx.fillStyle = rgba(col, 0.055 * r.prog * (r.m ? 0.35 : 1));
         ctx.fill(moved(g.fill, m));
       }
       if (g.band) {
-        ctx.fillStyle = rgba(r.col, 0.8 * r.prog);
+        ctx.fillStyle = rgba(col, 0.8 * r.prog);
         ctx.fill(moved(g.band, m));
       }
       let { P, trail, head, prev } = revealGeometry(g, shown);
@@ -624,15 +630,16 @@ function drawScene(dt) {
         busy = true;
       }
       if (r.prog < 1) {
-        ctx.strokeStyle = '#ffe6bd';
+        ctx.strokeStyle = T.hot;
         ctx.lineWidth = 1.25;
         ctx.stroke(trail);
       }
-      for (const { p: q, col = r.col } of g.pts) {
-        const p = at(q);
-        halo(p, col, 8, r.prog);
+      for (const { p: q, col: own } of g.pts) {
+        const p = at(q),
+          dot = own ? tone(own) : col;
+        halo(p, dot, 8, r.prog);
         ctx.globalAlpha = r.prog;
-        ctx.fillStyle = col;
+        ctx.fillStyle = dot;
         ctx.beginPath();
         ctx.arc(...p, r.k.type === 'table' ? 3 : 2.4, 0, Math.PI * 2);
         ctx.fill();
@@ -671,7 +678,7 @@ function drawScene(dt) {
     }
   }
   lastView = { ...S.V };
-  ctx.globalCompositeOperation = 'lighter';
+  ctx.globalCompositeOperation = T.blend;
   for (let i = S.sparks.length - 1; i >= 0; i--) {
     const s = S.sparks[i];
     s.life += dt;
@@ -685,7 +692,7 @@ function drawScene(dt) {
     s.vx *= 1 - 1.5 * dt;
     s.x += s.vx * dt;
     s.y += s.vy * dt;
-    ctx.strokeStyle = rgba(s.col, 1 - s.life / s.max);
+    ctx.strokeStyle = rgba(tone(s.col), 1 - s.life / s.max);
     ctx.lineWidth = s.w || 0.7;
     ctx.beginPath();
     ctx.moveTo(x, y);
@@ -698,9 +705,10 @@ function drawScene(dt) {
   drawTrace();
   return busy;
 }
-export function halo(p, col, r, alpha) {
-  const q = ctx.createRadialGradient(...p, 0, ...p, r);
-  q.addColorStop(0, '#fff2d9');
+export function halo(p, raw, r, alpha) {
+  const col = tone(raw),
+    q = ctx.createRadialGradient(...p, 0, ...p, r);
+  q.addColorStop(0, T.core);
   q.addColorStop(0.12, col);
   q.addColorStop(0.35, rgba(col, 0.24));
   q.addColorStop(1, rgba(col, 0));
@@ -711,9 +719,10 @@ export function halo(p, col, r, alpha) {
   ctx.fill();
   ctx.globalAlpha = 1;
 }
-function traceHead(p, col, alpha = 1) {
+function traceHead(p, raw, alpha = 1) {
+  const col = tone(raw);
   ctx.save();
-  ctx.globalCompositeOperation = 'lighter';
+  ctx.globalCompositeOperation = T.blend;
   const g = ctx.createRadialGradient(...p, 0, ...p, 110);
   g.addColorStop(0, rgba(col, 0.15));
   g.addColorStop(0.3, rgba(col, 0.035));
@@ -728,7 +737,7 @@ function traceHead(p, col, alpha = 1) {
   ctx.lineWidth = 0.65;
   const q = ctx.createLinearGradient(-22, 0, 22, 0);
   q.addColorStop(0, rgba(col, 0));
-  q.addColorStop(0.5, '#fff2d9');
+  q.addColorStop(0.5, T.core);
   q.addColorStop(1, rgba(col, 0));
   ctx.strokeStyle = q;
   ctx.beginPath();
@@ -740,7 +749,7 @@ function traceHead(p, col, alpha = 1) {
   ctx.moveTo(-14, 0);
   ctx.lineTo(14, 0);
   ctx.stroke();
-  ctx.fillStyle = '#fff7e8';
+  ctx.fillStyle = T.core;
   ctx.beginPath();
   ctx.arc(0, 0, 1.7, 0, Math.PI * 2);
   ctx.fill();
@@ -759,8 +768,8 @@ function draw3(dt) {
     };
   ctx.font = '9px monospace';
   ctx.lineWidth = 0.6;
-  ctx.strokeStyle = 'rgba(211,187,157,.19)';
-  ctx.fillStyle = '#a49885';
+  ctx.strokeStyle = T.mesh;
+  ctx.fillStyle = T.meshText;
   ctx.textAlign = 'left';
   ctx.textBaseline = 'middle';
   if (S.construction) {
@@ -809,11 +818,11 @@ function draw3(dt) {
       }
       if (n % 15 === 0 && S.construction && c.segments.length) {
         const a = project(...c.segments[Math.floor(c.segments.length * 0.55)][0]);
-        ctx.fillStyle = 'rgba(204,189,169,.45)';
+        ctx.fillStyle = T.contourText;
         ctx.fillText(fmt(c.level), a[0] + 4, a[1] - 5);
       }
     }
-    ctx.strokeStyle = 'rgba(229,215,195,.63)';
+    ctx.strokeStyle = T.contour;
     ctx.lineWidth = 0.7;
     ctx.stroke(P);
     const M = new Path2D();
@@ -849,7 +858,7 @@ function draw3(dt) {
           prev = q;
         }
       }
-    ctx.strokeStyle = mesh.flat ? 'rgba(206,192,176,.5)' : 'rgba(206,192,176,.13)';
+    ctx.strokeStyle = mesh.flat ? T.meshFlat : T.meshFaint;
     ctx.lineWidth = 0.5;
     ctx.stroke(M);
     const ridge = new Path2D();
@@ -981,7 +990,7 @@ function drawMarks() {
       uy = (-m.uy / l) * 85;
     if (Number.isFinite(l)) {
       ctx.setLineDash([5, 5]);
-      ctx.strokeStyle = rgba(m.c, 0.6);
+      ctx.strokeStyle = rgba(tone(m.c), 0.6);
       ctx.lineWidth = 1.2;
       ctx.beginPath();
       ctx.moveTo(x - ux, y - uy);
@@ -999,9 +1008,9 @@ function drawMarks() {
       w = ctx.measureText(label).width,
       lx = Math.max(4, Math.min(x + 10, S.W - w - 14)),
       ly = Math.max(14, y - 19);
-    ctx.fillStyle = '#070707e8';
+    ctx.fillStyle = T.tipBg;
     ctx.fillRect(lx - 4, ly - 10, w + 8, 20);
-    ctx.fillStyle = '#fff1d6';
+    ctx.fillStyle = T.tipInk;
     ctx.fillText(label, lx, ly);
   }
 }
@@ -1015,7 +1024,7 @@ function drawTrace() {
       (t.key ? t.key + ' ' : '') +
       (t.r.k?.complex ? complexText(t.x, t.y, fmt) : `(${fmt(t.x)}, ${fmt(t.y)})`);
   halo([x, y], t.r.col, 16, 1);
-  ctx.fillStyle = t.r.col;
+  ctx.fillStyle = tone(t.r.col);
   ctx.beginPath();
   ctx.arc(x, y, 5, 0, Math.PI * 2);
   ctx.fill();
@@ -1028,12 +1037,12 @@ function drawTrace() {
   const w = ctx.measureText(label).width,
     lx = Math.max(4, Math.min(x + 12, S.W - w - 14)),
     ly = y - 22 < 14 ? y + 22 : y - 22;
-  ctx.fillStyle = '#070707ee';
+  ctx.fillStyle = T.tipBg;
   ctx.fillRect(lx - 6, ly - 12, w + 12, 24);
-  ctx.strokeStyle = rgba(t.r.col, 0.55);
+  ctx.strokeStyle = rgba(tone(t.r.col), 0.55);
   ctx.lineWidth = 1;
   ctx.strokeRect(lx - 6, ly - 12, w + 12, 24);
-  ctx.fillStyle = '#fff1d6';
+  ctx.fillStyle = T.tipInk;
   ctx.fillText(label, lx, ly);
 }
 

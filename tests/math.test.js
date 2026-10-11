@@ -3,7 +3,7 @@ import { nullObj, textNotation } from '../src/math/catalog.js';
 import { stitchContours } from '../src/math/contours.js';
 import { ddValue } from '../src/math/doubleDouble.js';
 import { calcFmt, fmt, nice } from '../src/math/format.js';
-import { escapeSample, parseFractal } from '../src/math/fractals.js';
+import { curveBounds, curvePoints, escapeSample, parseFractal } from '../src/math/fractals.js';
 import { findImplicitPoints, findKeyPoints, findParametricPoints } from '../src/math/keyPoints.js';
 import { mxDet, mxInv } from '../src/math/matrix.js';
 import {
@@ -879,6 +879,26 @@ describe('fractals', () => {
     const k = parseFractal('fractal(julia)', '', s => s);
     expect(k).toMatchObject({ type: 'fractal', family: 'julia', args: ['-0.8', '0.156', '280'] });
     expect(() => parseFractal('fractal(nope)', '', s => s)).toThrow('Unknown fractal family');
+  });
+
+  it('draws self-similar curves as one polyline with pinned ends', () => {
+    expect(parseFractal('fractal(dragon, n)', '', s => s)).toMatchObject({ type: 'lsys', args: ['n'] });
+    for (const n of [0, 1, 5, 12]) {
+      const p = curvePoints('dragon', n);
+      expect(p.length).toBe(2 * (2 ** n + 1));
+      expect([...p.slice(0, 2), ...p.slice(-2)].map(v => +v.toFixed(9))).toEqual([-1.5, -0.4, 1.5, -0.4]);
+    }
+    // Every dragon segment has the same length and turns a right angle.
+    const d = curvePoints('dragon', 8),
+      len = Math.hypot(d[2] - d[0], d[3] - d[1]);
+    for (let i = 2; i + 3 < d.length; i += 2)
+      expect(Math.hypot(d[i + 2] - d[i], d[i + 3] - d[i + 1])).toBeCloseTo(len, 9);
+    const k = curvePoints('koch', 3);
+    expect(k.length).toBe(2 * (3 * 4 ** 3 + 1));
+    expect(Math.hypot(k[0] - k.at(-2), k[1] - k.at(-1))).toBeLessThan(1e-9);
+    const [x0, x1, y0, y1] = curveBounds(k);
+    expect(Math.max(x1 - x0, y1 - y0)).toBeCloseTo(4, 9);
+    expect(curvePoints('hilbert', 3).length).toBe(2 * 4 ** 3);
   });
 });
 

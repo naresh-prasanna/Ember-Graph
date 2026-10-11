@@ -28,7 +28,7 @@
   min-width: 0.55em;
   height: 0.9em;
   vertical-align: middle;
-  background: rgba(255, 255, 255, 0.08);
+  background: rgb(var(--fg-rgb) / 0.08);
   border-radius: 2px;
 }
 /* ∫ with its bounds to the right, Σ and ∏ with theirs above and below. */

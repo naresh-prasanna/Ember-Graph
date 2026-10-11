@@ -13,7 +13,7 @@
 }
 .tbl input {
   width: 100%;
-  background: #0d0e0f;
+  background: var(--bg);
   border: 1px solid var(--ln);
   color: var(--ink);
   padding: 5px;
@@ -22,7 +22,7 @@
 }
 #mxg input {
   width: 64px;
-  background: #090a0b;
+  background: var(--bg);
   color: var(--ink);
   border: 1px solid var(--ln);
   padding: 6px;
@@ -31,22 +31,15 @@
 }
 #mxo {
   font: 12px/1.7 var(--mono);
-  color: #d9c6b0;
+  color: var(--ink-2);
   white-space: pre;
   min-height: 20px;
 }
 #mx select {
-  background: #090a0b;
+  background: var(--bg);
   color: var(--ink);
   border: 1px solid var(--ln);
   padding: 4px;
-}
-body.hc canvas {
-  filter: contrast(1.5) brightness(1.4);
-}
-body.hc {
-  --ink: #fff;
-  --dim: #d8d3cc;
 }
 .equation-display {
   display: block;
@@ -77,7 +70,7 @@ body.hc {
     15px 'Cambria Math',
     Georgia,
     serif;
-  color: #d6c9b8;
+  color: var(--ink-2);
 }
 .sl > span sub {
   font-size: 0.65em;
@@ -99,7 +92,7 @@ body.hc {
     17px 'Cambria Math',
     Georgia,
     serif;
-  color: #e9dfd0;
+  color: var(--ink);
 }
 .rg span {
   white-space: nowrap;
@@ -166,12 +159,12 @@ body.hc {
 }
 
 ::selection {
-  background: rgba(255, 120, 59, 0.55);
+  background: rgb(var(--em-rgb) / 0.55);
   color: #fff;
 }
 input::selection,
 textarea::selection {
-  background: rgba(255, 120, 59, 0.6);
+  background: rgb(var(--em-rgb) / 0.6);
   color: #fff;
 }
 .row:focus-within .col input[type='text'] {
@@ -181,5 +174,5 @@ textarea::selection {
   padding: 6px 0 4px;
   border-top: 1px solid var(--ln);
   font: 12px var(--mono);
-  color: #cbbfae;
+  color: var(--ink-2);
 }

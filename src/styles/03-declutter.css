@@ -16,7 +16,7 @@ body.is3d #drift {
 }
 .topbar {
   height: 60px;
-  border-bottom: 1px solid #ffffff10;
+  border-bottom: 1px solid rgb(var(--fg-rgb) / 0.063);
 }
 aside {
   top: 76px;
@@ -73,7 +73,7 @@ aside {
   padding: 0;
 }
 .scenes button {
-  color: #77726b;
+  color: var(--dim);
 }
 .scenes button.active {
   background: transparent;
@@ -94,7 +94,7 @@ aside {
   left: auto;
   right: 28px;
   text-align: right;
-  color: #9a938a;
+  color: var(--ink-3);
 }
 #tools {
   top: 80px;

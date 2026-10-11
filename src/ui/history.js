@@ -8,6 +8,9 @@ const historySnap = () =>
   JSON.stringify({
     r: S.rows.map(r => [r.text, r.col, r.off, !!r.helper]),
     v: S.vars,
+    g: S.ranges,
+    m: S.mode3,
+    s: S.activeScene,
   });
 let hist = [],
   histPos = 0,
@@ -55,6 +58,9 @@ function applyHistory(i) {
         helper,
       })),
       vars: o.v,
+      ...(o.g && { ranges: o.g }),
+      ...(o.m !== undefined && { mode3: o.m }),
+      ...(o.s && { scene: o.s }),
     });
   } finally {
     histApplying = false;

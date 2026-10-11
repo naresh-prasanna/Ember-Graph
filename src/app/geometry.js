@@ -1,4 +1,5 @@
 import {
+  curveSteps,
   fractalParams,
   geoValue,
   maxCopies,
@@ -11,7 +12,9 @@ import {
   val as evalRow,
 } from './model.js';
 import { S, reduceMotion } from './state.js';
+import { T } from './theme.js';
 import { measurePaths, stitchContours } from '../math/contours.js';
+import { curvePoints } from '../math/fractals.js';
 import { BRANCH } from '../math/parser.js';
 import { MC, MK, cen, closedLoop, nrst, rs } from '../math/morph.js';
 import { renderFractal } from '../render/fractalClient.js';
@@ -30,6 +33,24 @@ function geoRaw(r) {
   const k = r.k;
   if (k.type === 'fractal') {
     fractalRaster(r);
+    return;
+  }
+  if (k.type === 'lsys') {
+    let p;
+    try {
+      p = curvePoints(k.family, curveSteps(r));
+    } catch (e) {
+      r.err = e.message;
+      showError(r);
+      return;
+    }
+    const L = new Array(p.length),
+      { cx, cy, s } = S.V;
+    for (let i = 0; i < p.length; i += 2) {
+      L[i] = cx + p[i] * s;
+      L[i + 1] = cy - p[i + 1] * s;
+    }
+    g.L.push(L);
     return;
   }
   const T = k.type,
@@ -669,7 +690,7 @@ function thin(a, tol = 0.25) {
   for (let k = 0; k < n; k++) if (keep[k]) out.push(a[2 * k], a[2 * k + 1]);
   return out;
 }
-const THIN = new Set(['cart', 'cartY', 'function', 'par', 'polar', 'lreg']);
+const THIN = new Set(['cart', 'cartY', 'function', 'par', 'polar', 'lreg', 'lsys']);
 export function geo(r) {
   const old = r.g,
     ov = r.gv,
@@ -946,7 +967,7 @@ function fractalRaster(r) {
   const scale = S.fast ? 3 : Math.max(1, Math.sqrt((S.W * S.H) / 1000000)),
     w = Math.ceil(S.W / scale),
     h = Math.ceil(S.H / scale),
-    key = JSON.stringify([p, S.V, S.W, S.H, w, h, r.col]);
+    key = JSON.stringify([p, S.V, S.W, S.H, w, h, r.col, T.id]);
   if (r.fractalKey === key) return;
   r.fractalKey = key;
   const view = {
@@ -962,6 +983,7 @@ function fractalRaster(r) {
     height,
     w,
     h,
+    shade: T.shade,
   }).then(image => {
     if (!image || r.fractalKey !== key) return;
     if (!S.rows.includes(r) || r.off || r.err || r.k?.type !== 'fractal') {

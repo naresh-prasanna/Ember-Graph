@@ -1,0 +1,194 @@
+/* Startup sets button states and the theme; none of that should animate. main.js lifts this after two frames. */
+.preload *,
+.preload *::before,
+.preload *::after {
+  transition: none !important;
+}
+
+/* Colour themes. Each sets the tokens from 01-base.css; src/app/theme.js holds the matching canvas colours. */
+:root[data-theme='aurora'] {
+  --bg: #070a0e;
+  --pan: #0e131a;
+  --raise: #17202a;
+  --sf-rgb: 14 19 26;
+  --line-2: #2a3a48;
+  --ink: #e2ecf2;
+  --ink-2: #c3d2dc;
+  --ink-3: #97a9b7;
+  --dim: #7a8ea1;
+  --em: #3ee0c8;
+  --em-rgb: 62 224 200;
+  --em-2: #7fe9d9;
+  --em-soft: #b5f3ea;
+  --hot: #eafffb;
+  --on-em: #04201c;
+}
+:root[data-theme='phosphor'] {
+  --bg: #050806;
+  --pan: #0b100c;
+  --raise: #142017;
+  --sf-rgb: 11 16 12;
+  --line-2: #26402c;
+  --ink: #d8f5dc;
+  --ink-2: #b5dcbb;
+  --ink-3: #8db493;
+  --dim: #719776;
+  --em: #5dff7a;
+  --em-rgb: 93 255 122;
+  --em-2: #8dff9f;
+  --em-soft: #c4ffcd;
+  --hot: #f0fff2;
+  --on-em: #04240b;
+}
+:root[data-theme='safe'] {
+  --em: #e69f00;
+  --em-rgb: 230 159 0;
+  --em-2: #f0b93a;
+  --em-soft: #f5d58a;
+  --hot: #fff4d6;
+  --on-em: #1f1500;
+}
+:root[data-theme='contrast'] {
+  --bg: #000;
+  --pan: #000;
+  --raise: #141414;
+  --sf-rgb: 0 0 0;
+  --ln: #ffffff70;
+  --line-2: #ffffff90;
+  --ink: #fff;
+  --ink-2: #fff;
+  --ink-3: #ececec;
+  --dim: #d6d6d6;
+  --em: #ffd400;
+  --em-rgb: 255 212 0;
+  --em-2: #ffe14d;
+  --em-soft: #fff0a0;
+  --hot: #fff;
+  --on-em: #000;
+}
+:root[data-theme='daylight'] {
+  --bg: #f6f7f9;
+  --pan: #ffffff;
+  --raise: #eceef2;
+  --sf-rgb: 255 255 255;
+  --fg-rgb: 10 14 20;
+  --ln: #0a0e141f;
+  --line-2: #c4cad3;
+  --ink: #14181d;
+  --ink-2: #2b323b;
+  --ink-3: #47505b;
+  --dim: #5b6470;
+  --em: #c2410c;
+  --em-rgb: 194 65 12;
+  --em-2: #a8380a;
+  --em-soft: #8f2f08;
+  --hot: #7a2606;
+  --on-em: #fff;
+  color-scheme: light;
+}
+:root[data-theme='contrast'] button:focus-visible,
+:root[data-theme='contrast'] input:focus-visible,
+:root[data-theme='contrast'] select:focus-visible {
+  outline: 2px solid var(--em);
+  outline-offset: 2px;
+}
+
+/* Theme picker */
+.theme-pick {
+  position: relative;
+}
+.top-actions #theme {
+  display: grid;
+  place-items: center;
+  width: 38px;
+  height: 38px;
+  padding: 0;
+  border: 0;
+  color: var(--dim);
+}
+.top-actions #theme:hover,
+.top-actions #theme[aria-expanded='true'] {
+  color: var(--hot);
+}
+#theme svg {
+  width: 18px;
+  height: 18px;
+  fill: none;
+  stroke: currentColor;
+  stroke-width: 1.5;
+}
+.theme-menu {
+  position: absolute;
+  z-index: 20;
+  top: calc(100% + 8px);
+  right: 0;
+  display: grid;
+  gap: 2px;
+  width: 268px;
+  padding: 6px;
+  background: rgb(var(--sf-rgb) / 0.98);
+  border: 1px solid rgb(var(--fg-rgb) / 0.09);
+  border-radius: 12px;
+  box-shadow: 0 8px 8px #0006;
+  transform-origin: top right;
+  animation: presets-in 150ms var(--panel-ease);
+}
+.theme-menu[hidden] {
+  display: none;
+}
+.theme-menu button {
+  display: grid;
+  grid-template-columns: auto 1fr;
+  align-items: center;
+  gap: 2px 12px;
+  padding: 9px 11px;
+  text-align: left;
+  border: 0;
+  border-radius: 8px;
+}
+.theme-menu button:hover,
+.theme-menu button:focus-visible {
+  background: rgb(var(--fg-rgb) / 0.05);
+  outline: none;
+}
+.theme-menu button[aria-checked='true'] {
+  background: rgb(var(--em-rgb) / 0.09);
+}
+.theme-menu strong {
+  font-size: 14px;
+  font-weight: 500;
+  color: var(--ink);
+}
+.theme-menu button[aria-checked='true'] strong {
+  color: var(--hot);
+}
+.theme-menu small {
+  grid-column: 2;
+  font-size: 12px;
+  line-height: 1.4;
+  color: var(--dim);
+}
+/* A swatch shows the theme's own background and its first three curve colours. */
+.swatch {
+  grid-row: span 2;
+  display: grid;
+  grid-template-columns: repeat(3, 6px);
+  gap: 3px;
+  align-content: center;
+  justify-content: center;
+  width: 38px;
+  height: 30px;
+  border-radius: 7px;
+  background: var(--sw-bg);
+  box-shadow: inset 0 0 0 1px rgb(var(--fg-rgb) / 0.14);
+}
+.swatch i {
+  width: 6px;
+  height: 14px;
+  border-radius: 3px;
+}
+@media (prefers-reduced-motion: reduce) {
+  .theme-menu {
+    animation: none;
+  }
+}
