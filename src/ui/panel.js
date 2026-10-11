@@ -16,7 +16,7 @@ import {
 } from '../app/model.js';
 import { saveSoon } from '../app/persistence.js';
 import { frameFractal } from '../app/scenes.js';
-import { PAL, S } from '../app/state.js';
+import { PAL, S, reduceMotion } from '../app/state.js';
 import { tone } from '../app/theme.js';
 import { $ } from '../core/dom.js';
 import { makeEditor } from '../editor/mathEditor.js';
@@ -382,12 +382,16 @@ function closeSteps() {
   const r = sheetRow;
   if (!r) return;
   sheetRow = null;
-  sheet.hidden = true;
   sheet.dataset.k = '';
   stepsCard(r);
+  if (reduceMotion) sheet.hidden = true;
+  else sheet.classList.add('closing');
 }
 function stepsSheet() {
-  if (sheet) return sheet;
+  if (sheet) {
+    sheet.classList.remove('closing');
+    return sheet;
+  }
   sheet = document.createElement('section');
   sheet.className = 'steps-sheet';
   sheet.hidden = true;
@@ -396,6 +400,12 @@ function stepsSheet() {
     '<div class="ss-bar"><span class="ss-kicker">Steps</span><button class="ss-close" aria-label="Close steps">' +
     '<svg viewBox="0 0 24 24"><path d="M6 6l12 12M18 6L6 18"/></svg></button></div><div class="ss-scroll"></div>';
   sheet.querySelector('.ss-close').onclick = closeSteps;
+  sheet.addEventListener('animationend', e => {
+    if (e.target === sheet && sheet.classList.contains('closing')) {
+      sheet.classList.remove('closing');
+      sheet.hidden = true;
+    }
+  });
   document.addEventListener('keydown', e => {
     if (e.key === 'Escape' && sheetRow && (sheet.contains(e.target) || e.target === document.body))
       closeSteps();
@@ -1189,7 +1199,7 @@ function mountRow(r) {
     dot.setAttribute('aria-pressed', String(!r.off));
     rebuild();
   };
-  el.querySelector('.x').onclick = () => del(S.rows.indexOf(r));
+  el.querySelector('.x').onclick = () => del(S.rows.indexOf(r), true);
   const group = $('#rows').querySelector(':scope > .helpers');
   if (r.helper && group) group.querySelector('.helpers-body').append(el);
   else if (group) $('#rows').insertBefore(el, group);
@@ -1323,12 +1333,55 @@ export function replaceRow(r, text) {
   S.rows.splice(i, 1);
   return add(text, i - 1);
 }
-export function del(i) {
+// Only a click animates: deleting from the keyboard happens mid-typing, where any motion is in the way.
+export function del(i, animate = false) {
+  const gone = S.rows[i]?.inp?.closest('.row'),
+    motion = animate && !reduceMotion && gone,
+    before = motion
+      ? new Map(S.rows.map(r => [r, r.inp?.closest('.row')?.getBoundingClientRect().top]))
+      : null,
+    at = motion ? gone.getBoundingClientRect() : null;
   S.rows.splice(i, 1);
   if (!S.rows.length) S.rows.push(makeRow());
   render();
   rebuild();
   S.rows[Math.max(0, i - 1)].inp.focus();
+  if (motion) closeGap(gone, at, before);
+}
+/* The deleted row folds away like a closing window, over the rows beneath as they slide up into its place.
+   Both move by transform alone: the list has already been laid out without the row. */
+function closeGap(ghost, at, before) {
+  const box = $('#rows'),
+    b = box.getBoundingClientRect();
+  ghost.classList.add('row-ghost');
+  Object.assign(ghost.style, {
+    top: at.top - b.top + box.scrollTop + 'px',
+    left: at.left - b.left + 'px',
+    width: at.width + 'px',
+    height: at.height + 'px',
+  });
+  ghost.addEventListener('animationend', () => ghost.remove(), { once: true });
+  box.append(ghost);
+  const moved = [];
+  for (const r of S.rows) {
+    const el = r.inp?.closest('.row'),
+      d = before.get(r) - el?.getBoundingClientRect().top;
+    if (!(Math.abs(d) > 0.5)) continue;
+    el.style.transition = 'none';
+    el.style.transform = `translateY(${d}px)`;
+    moved.push(el);
+  }
+  void box.offsetHeight;
+  for (const el of moved) {
+    el.style.transition = 'transform 260ms var(--panel-ease)';
+    el.style.transform = '';
+    const done = e => {
+      if (e.target !== el || e.propertyName !== 'transform') return;
+      el.style.transition = '';
+      el.removeEventListener('transitionend', done);
+    };
+    el.addEventListener('transitionend', done);
+  }
 }
 export function fractalControls(r) {
   const curve = r.k?.type === 'lsys';
