@@ -311,7 +311,7 @@ export function tableFit(r) {
   }
   return r.fit;
 }
-export function parseRow(r, names) {
+export function parseRow(r, names, known) {
   if (isTableText(r.text)) return parseTable(r, names);
   if (isGeoText(r.text)) return parseGeoRow(r);
   let { body: t, filter } = parts(r.heldText ?? r.text);
@@ -427,7 +427,18 @@ export function parseRow(r, names) {
       k.R = [cp(q[1])];
     }
   } else {
-    const m = relation(t);
+    let m = relation(t);
+    if (m && !m[3].trim() && m[1].trim()) {
+      // `2 + 3 =` and `apples + 10 =` ask for a value. With an unknown on the left, like xy = or a =, the other
+      // side is still being typed: the row keeps its last graph until it arrives, rather than reading it as 0.
+      const free = [...compile(m[1], names).deps].filter(
+        n => !known?.has(n) && !tableColumns.has(n) && (coords.has(n) || !reserved(n)),
+      );
+      if (m[2] !== '=' || free.length)
+        throw Error(`Add the other side of the ${m[2] === '=' ? 'equation' : 'inequality'}`);
+      t = m[1].trim();
+      m = null;
+    }
     if (!m) {
       k.c = cp(t);
       k.bare = k.c;
@@ -436,14 +447,8 @@ export function parseRow(r, names) {
     } else {
       const left = m[1].trim(),
         op = m[2];
-      let right = m[3].trim();
-      if (!left) throw Error('Complete both sides of the relation');
-      if (!right) {
-        // `apples + 10 =` asks for a value; with x or y in it, the empty side means 0.
-        if (op === '=') k.bare = cp(left);
-        right = '0';
-        t = t.trimEnd() + '0';
-      }
+      const right = m[3].trim();
+      if (!left || !right) throw Error('Complete both sides of the relation');
       if (op !== '=') {
         k.type = 'ineq';
         k.c = cp(t);
@@ -567,7 +572,7 @@ function rebuildRows({ reset = false } = {}, held = null) {
   }
   for (const r of S.rows) {
     try {
-      if (!r.err) parseRow(r, names);
+      if (!r.err) parseRow(r, names, known);
       if (r.k && (['const', 'function'].includes(r.k.type) || (r.k.type === 'pt' && r.k.name))) {
         const k = r.k;
         if (byName.get(k.name).length > 1) throw Error('Duplicate definition: ' + k.name);
