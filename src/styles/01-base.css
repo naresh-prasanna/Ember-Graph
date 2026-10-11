@@ -115,18 +115,21 @@ button[aria-pressed='true'] {
   stroke-linejoin: round;
 }
 .brand-mark .axes {
-  stroke: rgb(var(--fg-rgb) / 0.42);
-  stroke-width: 4;
+  stroke: rgb(var(--em-rgb) / 0.6);
+  stroke-width: 3.5;
+}
+.brand-mark .arrows {
+  fill: rgb(var(--em-rgb) / 0.75);
 }
 .brand-mark .curve {
   stroke: url(#brand-heat);
-  stroke-width: 6;
+  stroke-width: 5.5;
 }
 .brand-mark .spark {
   fill: var(--hot);
 }
 .brand-mark .cool {
-  stop-color: rgb(var(--fg-rgb) / 0.35);
+  stop-color: rgb(var(--em-rgb) / 0.5);
 }
 .brand-mark .warm {
   stop-color: var(--em);

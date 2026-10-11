@@ -1,14 +1,14 @@
 <svg xmlns="http://www.w3.org/2000/svg" width="64" height="64" viewBox="0 0 64 64">
   <defs>
-    <radialGradient id="bg" cx="50%" cy="50%" r="70%">
-      <stop offset="0" stop-color="#1c120c"/><stop offset="1" stop-color="#08090a"/>
-    </radialGradient>
-    <linearGradient id="heat" x1="10" y1="50" x2="50" y2="14" gradientUnits="userSpaceOnUse">
-      <stop offset="0" stop-color="#ffffff" stop-opacity=".35"/><stop offset=".55" stop-color="#ff783b"/>
+    <linearGradient id="bg" x1="0" y1="0" x2="0" y2="1">
+      <stop offset="0" stop-color="#09091a"/><stop offset="1" stop-color="#151838"/>
+    </linearGradient>
+    <linearGradient id="heat" x1="7" y1="51" x2="50" y2="13" gradientUnits="userSpaceOnUse">
+      <stop offset="0" stop-color="#ff8a3d" stop-opacity=".55"/><stop offset=".5" stop-color="#ffa451"/>
       <stop offset="1" stop-color="#fff0df"/>
     </linearGradient>
     <radialGradient id="spark">
-      <stop offset="0" stop-color="#ff783b" stop-opacity=".9"/><stop offset="1" stop-color="#ff783b" stop-opacity="0"/>
+      <stop offset="0" stop-color="#ffb05c" stop-opacity=".95"/><stop offset="1" stop-color="#ff8a3d" stop-opacity="0"/>
     </radialGradient>
     <filter id="glow" x="-30%" y="-30%" width="160%" height="160%">
       <feGaussianBlur stdDeviation="0.4" result="b"/>
@@ -16,10 +16,11 @@
     </filter>
   </defs>
   <rect width="64" height="64" rx="14" fill="url(#bg)"/>
-  <g transform="translate(8 8) scale(0.75)" fill="none" stroke-linecap="round" stroke-linejoin="round">
-    <path d="M8 8v48h48" stroke="#ffffff" stroke-opacity=".42" stroke-width="4"/>
-    <path d="M10 50C26 50 30 18 50 14" stroke="url(#heat)" stroke-width="6" filter="url(#glow)"/>
-    <circle cx="50" cy="14" r="12" fill="url(#spark)"/>
-    <circle cx="50" cy="14" r="4.5" fill="#fff0df"/>
+  <g transform="translate(4 4) scale(0.875)" fill="none" stroke-linecap="round" stroke-linejoin="round">
+    <path d="M24 58V9M6 40h50" stroke="#ffb46b" stroke-opacity=".75" stroke-width="3"/>
+    <path d="M19.5 15 24 7l4.5 8zM50 35.5l8 4.5-8 4.5z" fill="#ffb46b" fill-opacity=".9" stroke="none"/>
+    <path d="M7 51c8 0 13-4 17-11 6-11 12-25 26-27" stroke="url(#heat)" stroke-width="5" filter="url(#glow)"/>
+    <circle cx="50" cy="13" r="13" fill="url(#spark)"/>
+    <path d="M50 3q1.4 8.6 10 10-8.6 1.4-10 10-1.4-8.6-10-10 8.6-1.4 10-10z" fill="#fff4e4"/>
   </g>
 </svg>
