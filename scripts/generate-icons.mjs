@@ -9,7 +9,7 @@ const ART = 'scripts/icon-art.jpg',
   ART_BOX = { left: 71, top: 64, width: 882, height: 898 },
   ART_RADIUS = 0.22,
   // The artwork's sky, top to bottom, for icons that must fill a full square.
-  SKY = ['#09091a', '#151838'];
+  SKY = ['#15142a', '#07030f'];
 
 // Axes with arrowheads, a curve rising through the origin, and a star where it ends. Same drawing as the
 // header mark in index.html.
@@ -17,7 +17,7 @@ const mark = (x, y, scale) => `
   <g transform="translate(${x} ${y}) scale(${scale})" fill="none" stroke-linecap="round" stroke-linejoin="round">
     <path d="M24 58V9M6 40h50" stroke="#ffb46b" stroke-opacity=".75" stroke-width="3"/>
     <path d="M19.5 15 24 7l4.5 8zM50 35.5l8 4.5-8 4.5z" fill="#ffb46b" fill-opacity=".9" stroke="none"/>
-    <path d="M7 51c8 0 13-4 17-11 6-11 12-25 26-27" stroke="url(#heat)" stroke-width="5" filter="url(#glow)"/>
+    <path d="M6 46c7 0 13-2 18-6 12-8 21-16 26-27" stroke="url(#heat)" stroke-width="5" filter="url(#glow)"/>
     <circle cx="50" cy="13" r="13" fill="url(#spark)"/>
     <path d="M50 3q1.4 8.6 10 10-8.6 1.4-10 10-1.4-8.6-10-10 8.6-1.4 10-10z" fill="#fff4e4"/>
   </g>`;
@@ -29,7 +29,7 @@ const vector = ({ size, radius, inset }) => {
     <linearGradient id="bg" x1="0" y1="0" x2="0" y2="1">
       <stop offset="0" stop-color="${SKY[0]}"/><stop offset="1" stop-color="${SKY[1]}"/>
     </linearGradient>
-    <linearGradient id="heat" x1="7" y1="51" x2="50" y2="13" gradientUnits="userSpaceOnUse">
+    <linearGradient id="heat" x1="6" y1="46" x2="50" y2="13" gradientUnits="userSpaceOnUse">
       <stop offset="0" stop-color="#ff8a3d" stop-opacity=".55"/><stop offset=".5" stop-color="#ffa451"/>
       <stop offset="1" stop-color="#fff0df"/>
     </linearGradient>
@@ -67,19 +67,38 @@ async function painted(size, file, { fill = false } = {}) {
     .toFile(`public/${file}`);
 }
 
-// Maskable icons are cropped by the system (often to a circle), so they take the artwork square-cut,
-// edge to edge, from inside its rounded corners.
-const bleed = (size, file, inset = 45) =>
-  sharp(ART)
-    .extract({
+// Maskable icons can be cropped to a circle holding only the middle 80%, which would cut off the star in
+// the corner. The scene shrinks into that circle over a blurred copy of its own sky, with feathered edges.
+async function bleed(size, file, { inset = 45, scale = 0.74 } = {}) {
+  const square = sharp(ART).extract({
       left: ART_BOX.left + inset,
       top: ART_BOX.top + inset,
       width: ART_BOX.width - inset * 2,
       height: ART_BOX.height - inset * 2,
-    })
-    .resize(size, size, { fit: 'fill' })
+    }),
+    inner = Math.round(size * scale),
+    feather = Math.round(inner * 0.06),
+    edge = `<svg width="${inner}" height="${inner}"><defs><filter id="f"><feGaussianBlur stdDeviation="${feather / 2}"/></filter></defs><rect x="${feather}" y="${feather}" width="${inner - feather * 2}" height="${inner - feather * 2}" rx="${feather * 2}" fill="#fff" filter="url(#f)"/></svg>`,
+    sky = await square
+      .clone()
+      .resize(size, size, { fit: 'fill' })
+      .blur(size / 40)
+      .modulate({ brightness: 0.55 })
+      .png()
+      .toBuffer(),
+    scene = await square
+      .clone()
+      .resize(inner, inner, { fit: 'fill' })
+      .ensureAlpha()
+      .composite([{ input: Buffer.from(edge), blend: 'dest-in' }])
+      .png()
+      .toBuffer(),
+    at = Math.round((size - inner) / 2);
+  await sharp(sky)
+    .composite([{ input: scene, left: at, top: at }])
     .png()
     .toFile(`public/${file}`);
+}
 
 fs.mkdirSync('public', { recursive: true });
 fs.writeFileSync('public/favicon.svg', vector({ size: 64, radius: 14, inset: 4 }));
