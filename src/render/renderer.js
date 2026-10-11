@@ -56,20 +56,15 @@ function grid() {
   ctx.moveTo(ax, 0);
   ctx.lineTo(ax, S.H);
   ctx.stroke();
-  ctx.font = sans(12, 600);
-  ctx.fillStyle = T.label;
-  ctx.textAlign = 'center';
-  ctx.textBaseline = 'top';
   ctx.beginPath();
-  const ly = pixel(Math.min(Math.max(S.V.cy + 13, 90), S.H - 28));
+  const ly = pixel(Math.min(Math.max(S.V.cy + 13, 90), S.H - 28)),
+    numbers = [];
   for (let i = Math.ceil(x0 / st); i <= Math.floor(x1 / st); i++) {
     const x = snap(S.V.cx + i * st * S.V.s, n);
     ctx.moveTo(x, ay - 4);
     ctx.lineTo(x, ay + 4);
-    if (i) ctx.fillText(fmt(i * st), pixel(x), ly);
+    if (i) numbers.push([fmt(i * st), pixel(x), ly, 'center', 'top']);
   }
-  ctx.textAlign = 'right';
-  ctx.textBaseline = 'middle';
   // With a complex number on show the plane is the Argand plane: the vertical axis counts in i.
   const argand = S.rows.some(r => !r.off && !r.err && r.k?.complex),
     tick = v => (!argand ? fmt(v) : fmt(v) === '1' ? 'i' : fmt(v) === '-1' ? '-i' : fmt(v) + 'i'),
@@ -78,9 +73,21 @@ function grid() {
     const y = snap(S.V.cy - i * st * S.V.s, n);
     ctx.moveTo(ax - 4, y);
     ctx.lineTo(ax + 4, y);
-    if (i) ctx.fillText(tick(i * st), lx, pixel(y));
+    if (i) numbers.push([tick(i * st), lx, pixel(y), 'right', 'middle']);
   }
   ctx.stroke();
+  // Each number sits in a ring of background, so grid lines stop short of the digits instead of crossing them.
+  ctx.font = sans(13, 600);
+  ctx.fillStyle = T.label;
+  ctx.strokeStyle = T.bg;
+  ctx.lineWidth = 4;
+  ctx.lineJoin = 'round';
+  for (const [t, x, y, align, base] of numbers) {
+    ctx.textAlign = align;
+    ctx.textBaseline = base;
+    ctx.strokeText(t, x, y);
+    ctx.fillText(t, x, y);
+  }
   ctx.lineCap = 'round';
   if (argand) {
     ctx.font = 'italic 12px Georgia, serif';
@@ -224,7 +231,7 @@ function drawGuides(paths, col, alpha) {
   ctx.stroke();
   ctx.restore();
 }
-const LINE = 1.8;
+const LINE = 2;
 function glow(path, raw, width = LINE) {
   const col = tone(raw);
   width += T.width;

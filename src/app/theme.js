@@ -127,7 +127,7 @@ export const THEMES = {
     labelAlpha: 0.72,
     blend: 'source-over',
     glow: false,
-    width: 0.7,
+    width: 0.5,
     axisWidth: 1.5,
     hot: '#7a2606',
     core: '#ffffff',
