@@ -108,10 +108,31 @@ button[aria-pressed='true'] {
   gap: 13px;
 }
 .brand-mark {
-  color: var(--em);
-  width: 30px;
-  height: 30px;
-  filter: drop-shadow(0 0 12px rgb(var(--em-rgb) / 0.314));
+  width: 32px;
+  height: 32px;
+  overflow: visible;
+  stroke-linecap: round;
+  stroke-linejoin: round;
+}
+.brand-mark .axes {
+  stroke: rgb(var(--fg-rgb) / 0.42);
+  stroke-width: 4;
+}
+.brand-mark .curve {
+  stroke: url(#brand-heat);
+  stroke-width: 6;
+}
+.brand-mark .spark {
+  fill: var(--hot);
+}
+.brand-mark .cool {
+  stop-color: rgb(var(--fg-rgb) / 0.35);
+}
+.brand-mark .warm {
+  stop-color: var(--em);
+}
+.brand-mark .hot {
+  stop-color: var(--hot);
 }
 .brand strong {
   font-weight: 500;

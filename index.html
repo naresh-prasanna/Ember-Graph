@@ -26,10 +26,22 @@
     <div id="app">
       <header class="topbar">
         <div class="brand">
-          <svg class="brand-mark" viewBox="0 0 36 36" fill="none">
-            <path d="M18 2v32M2 18h32M7 7l22 22M7 29L29 7" stroke="currentColor" stroke-width="1" />
-            <circle cx="18" cy="18" r="7" stroke="currentColor" />
-            <circle cx="18" cy="18" r="2" fill="currentColor" />
+          <svg class="brand-mark" viewBox="0 0 64 64" fill="none" aria-hidden="true">
+            <defs>
+              <linearGradient id="brand-heat" x1="10" y1="50" x2="50" y2="14" gradientUnits="userSpaceOnUse">
+                <stop offset="0" class="cool" />
+                <stop offset="0.55" class="warm" />
+                <stop offset="1" class="hot" />
+              </linearGradient>
+              <radialGradient id="brand-glow">
+                <stop offset="0" class="warm" stop-opacity="0.9" />
+                <stop offset="1" class="warm" stop-opacity="0" />
+              </radialGradient>
+            </defs>
+            <path class="axes" d="M8 8v48h48" />
+            <path class="curve" d="M10 50C26 50 30 18 50 14" />
+            <circle cx="50" cy="14" r="12" fill="url(#brand-glow)" />
+            <circle cx="50" cy="14" r="4.5" class="spark" />
           </svg>
           <div><strong>EMBER</strong></div>
         </div>
