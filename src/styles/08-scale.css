@@ -17,10 +17,27 @@
   font-size: 15px;
   color: var(--ink-3);
 }
+#more,
+.x {
+  display: grid;
+  place-items: center;
+}
 #more {
   width: 36px;
   height: 36px;
-  font-size: 28px;
+}
+/* Drawn, not typed: a + or × character sits on the font's baseline, never in the middle of its button. */
+.icon {
+  width: 20px;
+  height: 20px;
+  fill: none;
+  stroke: currentColor;
+  stroke-width: 1.6;
+  stroke-linecap: round;
+}
+.x .icon {
+  width: 18px;
+  height: 18px;
 }
 .panel-toggle svg {
   width: 20px;
@@ -59,8 +76,6 @@
   height: 36px;
   margin: 8px 6px 0 0;
   padding: 0;
-  font-size: 24px;
-  line-height: 1;
   border-radius: 7px;
 }
 .x:hover {
