@@ -1,7 +1,5 @@
-// Renders the app icons in public/. Run with `npm run icons`.
-// Large icons use the painted artwork in scripts/icon-art.jpg; the favicon is a vector drawing of the
-// same scene, since stars and sparks turn to noise at 16px.
-import fs from 'node:fs';
+// Renders every icon in public/ from the painted artwork in scripts/icon-art.jpg: the app icons, the
+// browser tab icon and the logo in the header. Run with `npm run icons`.
 import sharp from 'sharp';
 
 const ART = 'scripts/icon-art.jpg',
@@ -9,49 +7,17 @@ const ART = 'scripts/icon-art.jpg',
   ART_BOX = { left: 71, top: 64, width: 882, height: 898 },
   ART_RADIUS = 0.22,
   // The artwork's sky, top to bottom, for icons that must fill a full square.
-  SKY = ['#15142a', '#07030f'];
-
-// Axes with arrowheads, a curve rising through the origin, and a star where it ends. Same drawing as the
-// header mark in index.html.
-const mark = (x, y, scale) => `
-  <g transform="translate(${x} ${y}) scale(${scale})" fill="none" stroke-linecap="round" stroke-linejoin="round">
-    <path d="M24 58V9M6 40h50" stroke="#ffb46b" stroke-opacity=".75" stroke-width="3"/>
-    <path d="M19.5 15 24 7l4.5 8zM50 35.5l8 4.5-8 4.5z" fill="#ffb46b" fill-opacity=".9" stroke="none"/>
-    <path d="M6 46c7 0 13-2 18-6 12-8 21-16 26-27" stroke="url(#heat)" stroke-width="5" filter="url(#glow)"/>
-    <circle cx="50" cy="13" r="13" fill="url(#spark)"/>
-    <path d="M50 3q1.4 8.6 10 10-8.6 1.4-10 10-1.4-8.6-10-10 8.6-1.4 10-10z" fill="#fff4e4"/>
-  </g>`;
-
-const vector = ({ size, radius, inset }) => {
-  const scale = (size - inset * 2) / 64;
-  return `<svg xmlns="http://www.w3.org/2000/svg" width="${size}" height="${size}" viewBox="0 0 ${size} ${size}">
-  <defs>
-    <linearGradient id="bg" x1="0" y1="0" x2="0" y2="1">
-      <stop offset="0" stop-color="${SKY[0]}"/><stop offset="1" stop-color="${SKY[1]}"/>
-    </linearGradient>
-    <linearGradient id="heat" x1="6" y1="46" x2="50" y2="13" gradientUnits="userSpaceOnUse">
-      <stop offset="0" stop-color="#ff8a3d" stop-opacity=".55"/><stop offset=".5" stop-color="#ffa451"/>
-      <stop offset="1" stop-color="#fff0df"/>
-    </linearGradient>
-    <radialGradient id="spark">
-      <stop offset="0" stop-color="#ffb05c" stop-opacity=".95"/><stop offset="1" stop-color="#ff8a3d" stop-opacity="0"/>
-    </radialGradient>
-    <filter id="glow" x="-30%" y="-30%" width="160%" height="160%">
-      <feGaussianBlur stdDeviation="${size / 160}" result="b"/>
-      <feMerge><feMergeNode in="b"/><feMergeNode in="SourceGraphic"/></feMerge>
-    </filter>
-  </defs>
-  <rect width="${size}" height="${size}" rx="${radius}" fill="url(#bg)"/>${mark(inset, inset, scale)}
-</svg>`;
-};
+  SKY = ['#15142a', '#07030f'],
+  // A 256-colour palette keeps the 512px icons, which every install downloads, a fraction of their size.
+  PNG = { palette: true, quality: 92, effort: 10, compressionLevel: 9 };
 
 // The artwork cut out with its own rounded corners. With `fill`, its corners are filled with the sky
 // colours: iOS rounds the icon itself and needs it opaque.
 async function painted(size, file, { fill = false } = {}) {
   const corner = `<svg width="${size}" height="${size}"><rect x="2" y="2" width="${size - 4}" height="${size - 4}" rx="${size * ART_RADIUS}" fill="#fff"/></svg>`,
-    art = await sharp(ART)
-      .extract(ART_BOX)
-      .resize(size, size, { fit: 'fill' })
+    resized = sharp(ART).extract(ART_BOX).resize(size, size, { fit: 'fill', kernel: 'lanczos3' }),
+    // Shrunk to a few dozen pixels, the curve and axes go soft without a little sharpening.
+    art = await (size <= 128 ? resized.sharpen({ sigma: 0.6 }) : resized)
       .ensureAlpha()
       .composite([{ input: Buffer.from(corner), blend: 'dest-in' }])
       .png()
@@ -63,7 +29,7 @@ async function painted(size, file, { fill = false } = {}) {
       : { create: { width: size, height: size, channels: 4, background: { r: 0, g: 0, b: 0, alpha: 0 } } };
   await sharp(base)
     .composite([{ input: art }])
-    .png()
+    .png(PNG)
     .toFile(`public/${file}`);
 }
 
@@ -96,13 +62,14 @@ async function bleed(size, file, { inset = 45, scale = 0.74 } = {}) {
     at = Math.round((size - inner) / 2);
   await sharp(sky)
     .composite([{ input: scene, left: at, top: at }])
-    .png()
+    .png(PNG)
     .toFile(`public/${file}`);
 }
 
-fs.mkdirSync('public', { recursive: true });
-fs.writeFileSync('public/favicon.svg', vector({ size: 64, radius: 14, inset: 4 }));
 await Promise.all([
+  painted(32, 'favicon-32.png'),
+  painted(64, 'favicon-64.png'),
+  painted(96, 'logo-96.png'),
   painted(192, 'pwa-192.png'),
   painted(512, 'pwa-512.png'),
   bleed(512, 'pwa-maskable-512.png'),

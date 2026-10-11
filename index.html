@@ -10,7 +10,8 @@
     />
     <meta name="theme-color" content="#08090a" />
     <meta name="color-scheme" content="dark" />
-    <link rel="icon" href="/favicon.svg" type="image/svg+xml" />
+    <link rel="icon" href="/favicon-32.png" sizes="32x32" type="image/png" />
+    <link rel="icon" href="/favicon-64.png" sizes="64x64" type="image/png" />
     <link rel="apple-touch-icon" href="/apple-touch-icon.png" />
     <script>
       document.documentElement.classList.add('preload');
@@ -26,24 +27,14 @@
     <div id="app">
       <header class="topbar">
         <div class="brand">
-          <svg class="brand-mark" viewBox="0 0 64 64" fill="none" aria-hidden="true">
-            <defs>
-              <linearGradient id="brand-heat" x1="6" y1="46" x2="50" y2="13" gradientUnits="userSpaceOnUse">
-                <stop offset="0" class="cool" />
-                <stop offset="0.5" class="warm" />
-                <stop offset="1" class="hot" />
-              </linearGradient>
-              <radialGradient id="brand-glow">
-                <stop offset="0" class="warm" stop-opacity="0.9" />
-                <stop offset="1" class="warm" stop-opacity="0" />
-              </radialGradient>
-            </defs>
-            <path class="axes" d="M24 58V9M6 40h50" />
-            <path class="arrows" d="M19.5 15 24 7l4.5 8zM50 35.5l8 4.5-8 4.5z" />
-            <path class="curve" d="M6 46c7 0 13-2 18-6 12-8 21-16 26-27" />
-            <circle cx="50" cy="13" r="13" fill="url(#brand-glow)" />
-            <path class="spark" d="M50 3q1.4 8.6 10 10-8.6 1.4-10 10-1.4-8.6-10-10 8.6-1.4 10-10z" />
-          </svg>
+          <img
+            class="brand-mark"
+            src="/favicon-32.png"
+            srcset="/favicon-64.png 2x, /logo-96.png 3x"
+            width="32"
+            height="32"
+            alt=""
+          />
           <div><strong>EMBER</strong></div>
         </div>
         <div class="presets">
@@ -217,28 +208,72 @@
       </div>
       <div id="notice" class="notice" hidden role="status"></div>
     </div>
-    <dialog id="guide-dialog">
-      <h2>Follow your curiosity.</h2>
-      <p>
-        Click an expression to edit. Enter adds a new one. Click a curve to inspect a point and its tangent.
-        Drag points or empty space; scroll to zoom.
-      </p>
-      <div class="help-grid">
-        <div><small>FUNCTIONS &amp; PARAMETERS</small>y = a*sin(x)<br />a = 2</div>
-        <div><small>IMPLICIT &amp; POLAR</small>x²+y² = 9<br />r = 2+sin(5θ)</div>
-        <div><small>RESTRICTIONS</small>y = x² {-3≤x≤3}<br />(cos(t),sin(t))</div>
-        <div><small>CALCULUS</small>f(x) = x²<br />f'(x) · integral(f,0,x)</div>
-        <div><small>DATA &amp; REGRESSION</small>[(1,2),(2,3)]<br />y ~ m*x+b</div>
-        <div><small>SURFACES</small>z = sin(x)*cos(y)<br />Select 3D, drag to orbit.</div>
+    <dialog id="guide-dialog" class="guide" aria-labelledby="guide-title" tabindex="-1">
+      <header class="guide-head">
+        <img src="/logo-96.png" srcset="/pwa-192.png 2x" width="48" height="48" alt="" />
+        <div>
+          <h2 id="guide-title">Type maths. Watch it draw.</h2>
+          <p>Each expression in the list on the left is drawn on the graph as you type it.</p>
+        </div>
+        <button type="button" class="guide-x" aria-label="Close help">
+          <svg class="icon" viewBox="0 0 24 24" aria-hidden="true"><path d="m7 7 10 10M17 7 7 17" /></svg>
+        </button>
+      </header>
+      <section>
+        <h3>Try one <span>Click a card to add it to your graph.</span></h3>
+        <div class="specimens"></div>
+      </section>
+      <div class="guide-cols">
+        <section>
+          <h3>On the graph</h3>
+          <dl class="moves">
+            <div>
+              <dt>Drag</dt>
+              <dd>Move around, or move a point</dd>
+            </div>
+            <div>
+              <dt>Scroll or pinch</dt>
+              <dd>Zoom in and out</dd>
+            </div>
+            <div>
+              <dt>Click a curve</dt>
+              <dd>Read off a point and its slope</dd>
+            </div>
+            <div>
+              <dt>Drag in 3D</dt>
+              <dd>Orbit a surface</dd>
+            </div>
+          </dl>
+        </section>
+        <section>
+          <h3>Keys</h3>
+          <dl class="moves">
+            <div>
+              <dt><kbd>Enter</kbd></dt>
+              <dd>New expression</dd>
+            </div>
+            <div>
+              <dt><kbd>Ctrl</kbd> <kbd>Z</kbd></dt>
+              <dd>Undo</dd>
+            </div>
+            <div>
+              <dt><kbd>H</kbd></dt>
+              <dd>Hide the controls</dd>
+            </div>
+            <div>
+              <dt><kbd>`</kbd></dt>
+              <dd>Frame rate and timings</dd>
+            </div>
+          </dl>
+        </section>
       </div>
-      <p>
-        Explore keeps the editor close. Present clears the canvas for a cinematic trace. The camera leans into
-        tracing, panning, and zooming, then settles. Use the tilted-frame button to switch this motion off.
-        Press H to hide every control and leave just the graph; H or Esc brings them back. A preset always
-        opens as it was made; undo brings back the graph you left. Save your own graph as a preset from the
-        same menu. Share saves the current graph. Numerical plots and calculus are approximate.
-      </p>
-      <button id="close-guide">Start exploring ↗</button>
+      <footer class="guide-foot">
+        <p>
+          Presets open guided studies, and you can save your own. Present clears the screen for showing a
+          graph to others. Plots and calculus are numerical, so read them as close approximations.
+        </p>
+        <button type="button" id="close-guide">Start graphing</button>
+      </footer>
     </dialog>
     <dialog id="ggb-dialog">
       <h2>Import GeoGebra</h2>

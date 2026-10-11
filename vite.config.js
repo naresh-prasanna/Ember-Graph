@@ -43,7 +43,7 @@ export default defineConfig({
     VitePWA({
       registerType: 'prompt',
       injectRegister: false,
-      includeAssets: ['favicon.svg', 'apple-touch-icon.png'],
+      includeAssets: ['favicon-32.png', 'favicon-64.png', 'logo-96.png', 'apple-touch-icon.png'],
       manifest: {
         name: 'Ember Graph',
         short_name: 'Ember',

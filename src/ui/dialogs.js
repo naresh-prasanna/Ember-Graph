@@ -50,6 +50,4 @@ export function initDialogs() {
     $('#img').hidden = false;
     $('#sharemsg').textContent = 'Right-click or long-press the image to save it.';
   };
-  $('#help').onclick = () => $('#guide-dialog').showModal();
-  $('#close-guide').onclick = () => $('#guide-dialog').close();
 }

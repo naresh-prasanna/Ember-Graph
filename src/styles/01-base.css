@@ -110,32 +110,6 @@ button[aria-pressed='true'] {
 .brand-mark {
   width: 32px;
   height: 32px;
-  overflow: visible;
-  stroke-linecap: round;
-  stroke-linejoin: round;
-}
-.brand-mark .axes {
-  stroke: rgb(var(--em-rgb) / 0.6);
-  stroke-width: 3.5;
-}
-.brand-mark .arrows {
-  fill: rgb(var(--em-rgb) / 0.75);
-}
-.brand-mark .curve {
-  stroke: url(#brand-heat);
-  stroke-width: 5.5;
-}
-.brand-mark .spark {
-  fill: var(--hot);
-}
-.brand-mark .cool {
-  stop-color: rgb(var(--em-rgb) / 0.5);
-}
-.brand-mark .warm {
-  stop-color: var(--em);
-}
-.brand-mark .hot {
-  stop-color: var(--hot);
 }
 .brand strong {
   font-weight: 500;
@@ -824,25 +798,270 @@ dialog img {
   font: 11px/1.6 var(--mono);
   color: var(--ink-3);
 }
-.help-grid {
-  display: grid;
-  grid-template-columns: 1fr 1fr;
-  gap: 1px;
-  background: var(--ln);
-  border: 1px solid var(--ln);
-  margin: 20px 0;
+/* Help. The examples are the centrepiece: small plots on graph paper that draw themselves in as it opens. */
+.guide:focus {
+  outline: none;
 }
-.help-grid div {
-  padding: 14px;
-  background: var(--pan);
-  font: 11px/1.8 var(--mono);
+.guide {
+  width: min(780px, 94vw);
+  max-height: 92dvh;
+  padding: 28px 32px 24px;
+  border-radius: 16px;
+  animation: guide-in 240ms cubic-bezier(0.23, 1, 0.32, 1);
+}
+.guide.closing {
+  animation: guide-out 150ms cubic-bezier(0.4, 0, 1, 1) forwards;
+}
+.guide.closing::backdrop {
+  animation: fade-out 150ms ease-in forwards;
+}
+@keyframes guide-in {
+  from {
+    opacity: 0;
+    transform: translateY(8px) scale(0.985);
+  }
+}
+@keyframes guide-out {
+  to {
+    opacity: 0;
+    transform: scale(0.985);
+  }
+}
+@keyframes fade-out {
+  to {
+    opacity: 0;
+  }
+}
+.guide-head {
+  display: grid;
+  grid-template-columns: auto 1fr auto;
+  gap: 18px;
+  align-items: center;
+  margin-bottom: 24px;
+}
+.guide-head img {
+  border-radius: 11px;
+}
+.guide h2 {
+  font:
+    400 27px/1.15 Georgia,
+    serif;
+  margin: 0 0 6px;
+  color: var(--ink);
+}
+.guide-head p {
+  margin: 0;
+  font-size: 14px;
+  line-height: 1.5;
+  color: var(--ink-3);
+}
+.guide-x {
+  align-self: start;
+  display: grid;
+  place-items: center;
+  width: 36px;
+  height: 36px;
+  padding: 0;
+  border-color: transparent;
+  color: var(--ink-3);
+}
+.guide-x:hover {
+  color: var(--hot);
+}
+.guide h3 {
+  margin: 0 0 12px;
+  font-size: 14px;
+  font-weight: 600;
   color: var(--ink-2);
 }
-.help-grid small {
-  display: block;
-  color: var(--dim);
-  font: 9px var(--sans);
-  margin-bottom: 6px;
+.guide h3 span {
+  margin-left: 8px;
+  font-weight: 400;
+  color: var(--ink-3);
+}
+.specimens {
+  display: grid;
+  grid-template-columns: repeat(3, 1fr);
+  gap: 10px;
+}
+.specimen {
+  display: grid;
+  gap: 2px;
+  padding: 0 0 12px;
+  text-align: left;
+  overflow: hidden;
+  border-radius: 11px;
+  background: rgb(var(--fg-rgb) / 0.02);
+}
+.specimen:hover {
+  border-color: rgb(var(--em-rgb) / 0.4);
+  background: rgb(var(--em-rgb) / 0.045);
+}
+/* Graph paper: a faint minor grid under a stronger major one. */
+.specimen svg {
+  width: 100%;
+  height: auto;
+  aspect-ratio: 120 / 60;
+  margin-bottom: 8px;
+  overflow: hidden;
+  fill: none;
+  stroke-linecap: round;
+  stroke-linejoin: round;
+  border-bottom: 1px solid var(--ln);
+  background:
+    linear-gradient(rgb(var(--fg-rgb) / 0.05) 1px, transparent 1px) 0 0 / 100% 20%,
+    linear-gradient(90deg, rgb(var(--fg-rgb) / 0.05) 1px, transparent 1px) 0 0 / 12.5% 100%,
+    linear-gradient(rgb(var(--fg-rgb) / 0.022) 1px, transparent 1px) 0 0 / 100% 5%,
+    linear-gradient(90deg, rgb(var(--fg-rgb) / 0.022) 1px, transparent 1px) 0 0 / 3.125% 100%;
+}
+.specimen .axes {
+  stroke: rgb(var(--fg-rgb) / 0.28);
+  stroke-width: 0.6;
+}
+.specimen .curve,
+.specimen .mesh {
+  stroke: var(--em);
+  stroke-width: 1.6;
+  filter: drop-shadow(0 0 2.5px rgb(var(--em-rgb) / 0.7));
+}
+.specimen .mesh {
+  stroke-width: 0.6;
+  filter: none;
+}
+.specimen .ghost {
+  stroke: rgb(var(--fg-rgb) / 0.32);
+  stroke-width: 1.1;
+  stroke-dasharray: 0.02 0.018;
+}
+.specimen .dot {
+  fill: var(--hot);
+}
+.specimens.drawn :is(.curve, .mesh) {
+  stroke-dasharray: 1;
+  animation: specimen-draw 900ms cubic-bezier(0.65, 0, 0.35, 1) both;
+  animation-delay: calc(120ms + var(--i) * 70ms);
+}
+@keyframes specimen-draw {
+  from {
+    stroke-dashoffset: 1;
+  }
+  to {
+    stroke-dashoffset: 0;
+  }
+}
+.specimen .equation-display {
+  min-height: 0;
+  padding: 0 14px;
+  font-size: 18px;
+  line-height: 1.4;
+  white-space: nowrap;
+}
+.specimen-name {
+  padding: 0 14px;
+  font-size: 12.5px;
+  color: var(--ink-3);
+}
+.specimen:hover .specimen-name {
+  color: var(--ink-2);
+}
+.guide-cols {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 32px;
+  margin: 24px 0 18px;
+}
+.moves {
+  margin: 0;
+}
+.moves div {
+  display: grid;
+  grid-template-columns: 128px 1fr;
+  gap: 12px;
+  padding: 7px 0;
+  border-top: 1px solid var(--ln);
+  font-size: 13.5px;
+}
+.moves dt {
+  color: var(--ink-2);
+}
+.moves dd {
+  margin: 0;
+  color: var(--ink-3);
+}
+kbd {
+  display: inline-block;
+  min-width: 22px;
+  padding: 1px 6px;
+  border: 1px solid rgb(var(--fg-rgb) / 0.16);
+  border-bottom-width: 2px;
+  border-radius: 5px;
+  background: var(--bg);
+  font: 12px/1.5 var(--mono);
+  text-align: center;
+  color: var(--ink-2);
+}
+.guide-foot {
+  display: flex;
+  align-items: center;
+  gap: 24px;
+  padding-top: 18px;
+  border-top: 1px solid var(--ln);
+}
+.guide-foot p {
+  margin: 0;
+  flex: 1;
+  font-size: 13px;
+  line-height: 1.6;
+  color: var(--ink-3);
+}
+#close-guide {
+  flex: none;
+  padding: 10px 18px;
+  font-weight: 600;
+  color: var(--on-em);
+  background: var(--em);
+  border-color: var(--em);
+}
+#close-guide:hover {
+  background: var(--em-2);
+}
+@media (max-width: 720px) {
+  .guide {
+    padding: 22px 18px 18px;
+  }
+  .guide-head {
+    grid-template-columns: 1fr auto;
+  }
+  .guide-head img {
+    display: none;
+  }
+  .guide h2 {
+    font-size: 22px;
+  }
+  .specimens {
+    grid-template-columns: repeat(2, 1fr);
+  }
+  .specimen .equation-display,
+  .specimen-name {
+    padding: 0 11px;
+  }
+  .specimen .equation-display {
+    font-size: 15px;
+  }
+  .guide-cols {
+    grid-template-columns: 1fr;
+    gap: 18px;
+  }
+  .guide-foot {
+    flex-direction: column;
+    align-items: stretch;
+  }
+}
+@media (prefers-reduced-motion: reduce) {
+  .guide,
+  .specimens.drawn :is(.curve, .mesh) {
+    animation: none;
+  }
 }
 .notice {
   position: absolute;
