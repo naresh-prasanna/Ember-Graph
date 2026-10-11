@@ -576,12 +576,11 @@ canvas {
   top: 40%;
   display: flex;
   flex-direction: column;
-  background: rgb(var(--sf-rgb) / 0.851);
+  background: rgb(var(--sf-rgb));
   border: 1px solid var(--ln);
   border-radius: 9px;
   padding: 5px;
   gap: 3px;
-  backdrop-filter: blur(15px);
 }
 #tools button {
   border: 0;

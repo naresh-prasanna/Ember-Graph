@@ -254,15 +254,59 @@ function glow(path, raw, width = LINE) {
   ctx.stroke(path);
   ctx.globalCompositeOperation = 'source-over';
 }
+/* The sky, fractal images and grid change only with the view, so while curves animate over a still view they
+   are drawn once and copied: redrawing every grid line and number each frame cost more than the curves did.
+   A view is kept once it has held for two frames, so panning never pays for the copy. */
+const backdrop = { key: null, pending: null, c: null };
+function backdropKey() {
+  // The orbit construction is drawn with the grid but follows the curves.
+  if (S.mode3 || (S.construction && S.activeScene === 'orbit')) return null;
+  let key = [
+    S.W,
+    S.H,
+    cv.width,
+    cv.height,
+    S.V.cx,
+    S.V.cy,
+    S.V.s,
+    ...camera.matrix,
+    T.id,
+    S.rows.some(r => !r.off && !r.err && r.k?.complex),
+  ].join();
+  for (const r of S.rows) if (r.k?.type === 'fractal') key += `|${r.off},${!!r.err},${idOf(r.fractal)}`;
+  return key;
+}
+function keepBackdrop(key) {
+  if (key !== backdrop.pending) {
+    backdrop.pending = key;
+    return;
+  }
+  const c = (backdrop.c ||= document.createElement('canvas'));
+  if (c.width !== cv.width || c.height !== cv.height) {
+    c.width = cv.width;
+    c.height = cv.height;
+  }
+  const x = c.getContext('2d');
+  x.globalCompositeOperation = 'copy';
+  x.drawImage(cv, 0, 0);
+  backdrop.key = key;
+}
 export function draw(dt) {
   ctx.globalAlpha = 1;
   ctx.globalCompositeOperation = 'source-over';
-  atmosphere();
+  const key = backdropKey(),
+    cached = key !== null && key === backdrop.key;
+  if (cached) {
+    ctx.save();
+    ctx.setTransform(1, 0, 0, 1, 0, 0);
+    ctx.drawImage(backdrop.c, 0, 0);
+    ctx.restore();
+  } else atmosphere();
   ctx.save();
   ctx.transform(...camera.matrix);
   camera.trace = null;
   try {
-    return drawScene(dt);
+    return drawScene(dt, cached ? undefined : key);
   } finally {
     ctx.restore();
   }
@@ -563,7 +607,8 @@ function keepStill(key) {
   x.drawImage(cv, 0, 0);
   still.key = key;
 }
-function drawScene(dt) {
+// `back` is undefined when the backdrop was copied in, null when it can't be kept, else the key to keep it under.
+function drawScene(dt, back) {
   ctx.globalAlpha = 1;
   ctx.globalCompositeOperation = 'source-over';
   ctx.lineCap = ctx.lineJoin = 'round';
@@ -577,8 +622,11 @@ function drawScene(dt) {
     ctx.restore();
   } else drawRows();
   function drawRows() {
-    drawFractals();
-    grid();
+    if (back !== undefined) {
+      drawFractals();
+      grid();
+      if (back !== null) keepBackdrop(back);
+    }
     for (const r of S.rows) {
       if (!drawn(r)) continue;
       const g = r.g,

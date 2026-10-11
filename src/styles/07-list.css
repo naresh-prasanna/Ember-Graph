@@ -871,7 +871,10 @@ body.present .steps-sheet {
     border: 0;
     border-right: 1px solid rgb(var(--fg-rgb) / 0.063);
     border-radius: 0;
-    background: linear-gradient(180deg, rgb(var(--sf-rgb) / 0.949), rgb(var(--sf-rgb) / 0.949));
+    /* Solid, not frosted: a blur behind the panel makes the browser re-blur a full-height strip of canvas on
+       every animated frame. */
+    background: rgb(var(--sf-rgb));
+    backdrop-filter: none;
     box-shadow: 18px 0 60px #0005;
     transition:
       transform 260ms var(--panel-ease),
