@@ -11,12 +11,13 @@ function canvas(o) {
     blend: 'lighter',
     glow: true,
     width: 0,
+    axisWidth: 1,
     pal: null,
     ...o,
-    gridMinor: a(line, 0.043 * k),
-    gridMajor: a(line, 0.09 * k),
-    axis: a(warm, 0.36 * k),
-    label: a(line, (o.labelAlpha ?? 0.56) * Math.min(k, 1.6)),
+    gridMinor: a(line, 0.045 * k),
+    gridMajor: a(line, 0.1 * k),
+    axis: a(warm, 0.44 * k),
+    label: a(line, (o.labelAlpha ?? 0.64) * Math.min(k, 1.6)),
     labelStrong: a(line, 0.62 * Math.min(k, 1.5)),
     origin: a(warm, 0.8),
     guideTick: a(warm, 0.24 * k),
@@ -106,6 +107,7 @@ export const THEMES = {
     labelAlpha: 0.9,
     glow: false,
     width: 1,
+    axisWidth: 1.5,
     hot: '#ffffff',
     core: '#ffffff',
     tipBg: '#000000f2',
@@ -121,11 +123,12 @@ export const THEMES = {
     line: '20,26,34',
     warm: '30,36,46',
     em: '194,65,12',
-    strength: 1.5,
+    strength: 2.2,
     labelAlpha: 0.72,
     blend: 'source-over',
     glow: false,
-    width: 1,
+    width: 0.7,
+    axisWidth: 1.5,
     hot: '#7a2606',
     core: '#ffffff',
     tipBg: '#ffffffee',
@@ -150,8 +153,9 @@ for (const c of ['#e4c29a', '#8e8b84', '#b29b81']) {
   SLOT.set(c, best);
 }
 
-// The UI's monospace stack (--mono): a bare `monospace` on a canvas is Courier New on Windows, thin and fuzzy.
-export const font = px => `${px}px ui-monospace, 'Cascadia Code', Consolas, Menlo, monospace`;
+// The UI's font stacks (--mono, --sans): a bare `monospace` on a canvas is Courier New on Windows, thin and fuzzy.
+export const font = px => `${px}px ui-monospace, 'Cascadia Code', Consolas, Menlo, monospace`,
+  sans = (px, weight = 400) => `${weight} ${px}px Inter, 'Segoe UI', system-ui, Arial, sans-serif`;
 
 export let T = THEMES.ember;
 let cache = new Map();

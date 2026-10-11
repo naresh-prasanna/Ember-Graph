@@ -2,7 +2,7 @@ import { geo, morphStep, surfaceMesh } from '../app/geometry.js';
 import { liveTrace } from '../app/interaction.js';
 import { parameter, setVar } from '../app/model.js';
 import { S, reduceMotion } from '../app/state.js';
-import { T, font, tone } from '../app/theme.js';
+import { T, font, sans, tone } from '../app/theme.js';
 import { $, ctx, cv } from '../core/dom.js';
 import { revealGeometry } from '../math/contours.js';
 import { complexText } from '../math/complex.js';
@@ -47,7 +47,7 @@ function grid() {
   if ((st * S.V.s) / 5 > 11) lines(st / 5, T.gridMinor);
   lines(st, T.gridMajor);
   ctx.strokeStyle = T.axis;
-  const n = hairline(0.8),
+  const n = hairline(T.axisWidth),
     ax = snap(S.V.cx, n),
     ay = snap(S.V.cy, n);
   ctx.beginPath();
@@ -56,7 +56,7 @@ function grid() {
   ctx.moveTo(ax, 0);
   ctx.lineTo(ax, S.H);
   ctx.stroke();
-  ctx.font = font(11);
+  ctx.font = sans(12, 600);
   ctx.fillStyle = T.label;
   ctx.textAlign = 'center';
   ctx.textBaseline = 'top';
@@ -224,7 +224,7 @@ function drawGuides(paths, col, alpha) {
   ctx.stroke();
   ctx.restore();
 }
-const LINE = 1.5;
+const LINE = 1.8;
 function glow(path, raw, width = LINE) {
   const col = tone(raw);
   width += T.width;
