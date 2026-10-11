@@ -71,7 +71,14 @@ export function showError(r) {
     const step = /^Add /.test(r.err);
     const formula = !r.err && (r.sym || r.symArea),
       series = !r.err && !r.sym && r.series,
-      solved = !r.err && r.symEq;
+      solved = !r.err && r.symEq,
+      frac = answer && r.frac?.info === r.info ? r.frac : null,
+      fr = r.errEl.closest('.row')?.querySelector('.fr');
+    r.errEl.closest('.row')?.classList.toggle('has-frac', !!frac);
+    if (fr) {
+      fr.setAttribute('aria-pressed', String(!!r.asFrac));
+      fr.title = fr.ariaLabel = r.asFrac ? 'Show as a decimal' : 'Show as a fraction';
+    }
     if (solved)
       r.errEl.innerHTML =
         `<span class="sym-note">${
@@ -106,7 +113,9 @@ export function showError(r) {
       r.errEl.textContent = open ? L.full + ' ' : L.short.slice(0, L.short.lastIndexOf(', …')) + ', ';
       r.errEl.append(b);
       if (!open) r.errEl.append(']');
-    } else r.errEl.textContent = r.err || r.info;
+    } else if (frac && r.asFrac)
+      r.errEl.innerHTML = `= ${frac.n < 0 ? '−' : ''}<span class="frac"><span>${Math.abs(frac.n)}</span><span>${frac.d}</span></span>`;
+    else r.errEl.textContent = r.err || r.info;
     r.errEl.classList.toggle('list-open', !r.err && !!r.listOpen && r.listFull?.short === r.info);
     r.errEl.style.color = (r.err && !step) || answer || formula || series || solved ? '' : 'var(--dim)';
     r.errEl.classList.toggle('answer', answer || !!formula || !!series || !!solved);
@@ -1143,7 +1152,7 @@ function mountRow(r) {
   el.className = 'row' + (r.off ? ' off' : '');
   el.style.setProperty('--curve', tone(r.col));
   el.innerHTML =
-    '<div class="gut"><span class="idx"></span><button class="dot" aria-label="Show or hide"></button></div><div class="col"><div class="row-label"></div><div class="entry"><div class="equation-display" aria-hidden="true"></div><input type="text" spellcheck="false" autocomplete="off" autocapitalize="off" placeholder="Type an equation"></div><div class="err" role="status"></div><div class="sls"></div></div><button class="x" aria-label="Delete"><svg class="icon" viewBox="0 0 24 24" aria-hidden="true"><path d="m7 7 10 10M17 7 7 17" /></svg></button>';
+    '<div class="gut"><span class="idx"></span><button class="dot" aria-label="Show or hide"></button><button class="fr" aria-pressed="false"><svg viewBox="0 0 24 24" aria-hidden="true"><rect x="9" y="4.5" width="6" height="5" rx="1.2" /><path d="M6.5 12h11" /><rect x="9" y="14.5" width="6" height="5" rx="1.2" /></svg></button></div><div class="col"><div class="row-label"></div><div class="entry"><div class="equation-display" aria-hidden="true"></div><input type="text" spellcheck="false" autocomplete="off" autocapitalize="off" placeholder="Type an equation"></div><div class="err" role="status"></div><div class="sls"></div></div><button class="x" aria-label="Delete"><svg class="icon" viewBox="0 0 24 24" aria-hidden="true"><path d="m7 7 10 10M17 7 7 17" /></svg></button>';
   el.querySelector('.idx').textContent = i + 1;
   const dot = el.querySelector('.dot');
   dot.setAttribute('aria-pressed', String(!r.off));
@@ -1198,6 +1207,11 @@ function mountRow(r) {
     el.classList.toggle('off', r.off);
     dot.setAttribute('aria-pressed', String(!r.off));
     rebuild();
+  };
+  el.querySelector('.fr').onclick = () => {
+    r.asFrac = !r.asFrac;
+    showError(r);
+    saveSoon();
   };
   el.querySelector('.x').onclick = () => del(S.rows.indexOf(r), true);
   const group = $('#rows').querySelector(':scope > .helpers');

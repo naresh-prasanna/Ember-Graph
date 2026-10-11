@@ -6,7 +6,7 @@ import { complexOp, complexText, imOf, isComplex, reOf } from '../math/complex.j
 import { DIST_NAMES, Dist } from '../math/distributions.js';
 import { Color, Matrix, Point, Shape, TTest, Tone, show } from '../math/values.js';
 import { ddValue } from '../math/doubleDouble.js';
-import { calcFmt, clamp, fmt } from '../math/format.js';
+import { calcFmt, clamp, fmt, toFraction } from '../math/format.js';
 import { FRACTALS, parseFractal } from '../math/fractals.js';
 import {
   BRANCH,
@@ -55,6 +55,7 @@ export function makeRow(text = '', options = {}) {
     off: !!options.off,
     helper: !!options.helper,
     colVar: options.colVar || null,
+    asFrac: !!options.frac,
     prog: reduceMotion ? 1 : 0,
     uses: new Set(),
   };
@@ -1154,6 +1155,8 @@ function calcInfo(r) {
         : Number.isNaN(v)
           ? 'Undefined' + why(r.k.c)
           : '= ' + calcFmt(v);
+    const frac = typeof v === 'number' ? toFraction(v) : null;
+    r.frac = frac && { n: frac[0], d: frac[1], info: r.info };
   } catch (e) {
     r.err = e.message;
   }

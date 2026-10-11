@@ -22,6 +22,7 @@ export function state() {
       off: r.off,
       ...(r.helper ? { helper: true } : {}),
       ...(r.colVar ? { colVar: r.colVar } : {}),
+      ...(r.asFrac ? { frac: true } : {}),
     })),
     vars: {
       ...S.vars,
@@ -69,6 +70,7 @@ export function validateState(o) {
       col: x.col,
       colVar: x.colVar,
       off: !!x.off,
+      frac: x.frac === true,
       helper: x.helper === true && !!x.text.trim(),
     };
   });

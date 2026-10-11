@@ -134,6 +134,45 @@ aside {
   align-self: center;
   margin: 0;
 }
+.fr {
+  display: none;
+  place-items: center;
+  width: 26px;
+  height: 26px;
+  padding: 0;
+  border-radius: 50%;
+  border-color: rgb(var(--fg-rgb) / 0.22);
+  color: var(--dim);
+}
+.err.answer .frac {
+  font-size: 1em;
+}
+.fr svg {
+  width: 17px;
+  height: 17px;
+  fill: none;
+  stroke: currentColor;
+  stroke-width: 1.6;
+  stroke-linecap: round;
+}
+.fr:hover {
+  color: var(--ink);
+  border-color: rgb(var(--fg-rgb) / 0.4);
+}
+.fr[aria-pressed='true'] {
+  color: var(--hot);
+  border-color: var(--em);
+  background: rgb(var(--em-rgb) / 0.14);
+}
+.fr:active {
+  transform: scale(0.94);
+}
+.row.has-frac .dot {
+  display: none;
+}
+.row.has-frac .fr {
+  display: grid;
+}
 .row:focus-within .gut {
   background: rgb(var(--em-rgb) / 0.078);
   box-shadow: inset 2px 0 var(--em);

@@ -2,7 +2,7 @@ import { describe, expect, it } from 'vitest';
 import { nullObj, textNotation } from '../src/math/catalog.js';
 import { measurePaths, stitchContours } from '../src/math/contours.js';
 import { ddValue } from '../src/math/doubleDouble.js';
-import { calcFmt, fmt, nice } from '../src/math/format.js';
+import { calcFmt, fmt, nice, toFraction } from '../src/math/format.js';
 import { curveBounds, curvePoints, escapeSample, parseFractal } from '../src/math/fractals.js';
 import { findImplicitPoints, findKeyPoints, findParametricPoints } from '../src/math/keyPoints.js';
 import { mxDet, mxInv } from '../src/math/matrix.js';
@@ -696,6 +696,19 @@ describe('formatting', () => {
     expect(fmt(123456)).toBe('1.23e+5');
     expect(fmt(NaN)).toBe('—');
     expect(nice(37)).toBe(50);
+  });
+  it('reads answers as fractions only when they plainly are one', () => {
+    const dd = src => ddValue(compileExpr(src), () => NaN);
+    expect(toFraction(dd('5/6'))).toEqual([5, 6]);
+    expect(toFraction(4.214)).toEqual([2107, 500]);
+    expect(toFraction(-0.75)).toEqual([-3, 4]);
+    expect(toFraction(dd('1/3+1/7'))).toEqual([10, 21]);
+    expect(toFraction(0.123456)).toEqual([1929, 15625]);
+    expect(toFraction(3)).toBe(null);
+    expect(toFraction(Math.PI)).toBe(null);
+    expect(toFraction(Math.SQRT2)).toBe(null);
+    expect(toFraction(1e-7)).toBe(null);
+    expect(toFraction(NaN)).toBe(null);
   });
 });
 
