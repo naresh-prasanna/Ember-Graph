@@ -19,7 +19,6 @@ function canvas(o) {
     axis: a(warm, 0.44 * k),
     label: a(line, (o.labelAlpha ?? 0.64) * Math.min(k, 1.6)),
     labelStrong: a(line, 0.62 * Math.min(k, 1.5)),
-    origin: a(warm, 0.8),
     guideTick: a(warm, 0.24 * k),
     guideSpoke: a(o.em, 0.16 * k),
     guideLine: a(warm, 0.3 * k),

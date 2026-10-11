@@ -103,10 +103,6 @@ function grid() {
     ctx.textBaseline = 'top';
     if (S.V.cx > 0 && S.V.cx < S.W - 30) ctx.fillText('Im', S.V.cx + 9, 58);
   }
-  ctx.strokeStyle = T.origin;
-  ctx.beginPath();
-  ctx.arc(S.V.cx, S.V.cy, 3, 0, Math.PI * 2);
-  ctx.stroke();
   if (S.construction && S.activeScene === 'orbit') orbitGuides();
 }
 function orbitGuides() {
