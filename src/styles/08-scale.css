@@ -326,10 +326,6 @@ body.is3d #tools #drift {
   display: grid !important;
   place-items: center;
 }
-#co {
-  font-size: 12px;
-}
-
 @media (max-width: 720px) {
   .presets {
     position: static;

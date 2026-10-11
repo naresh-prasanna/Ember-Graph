@@ -682,16 +682,6 @@ canvas {
   border-right: 1px solid var(--ink-3);
   border-bottom: 1px solid var(--ink-3);
 }
-#co {
-  position: absolute;
-  left: 29px;
-  bottom: 27px;
-  font: 9px var(--mono);
-  letter-spacing: 0.5px;
-  color: var(--dim);
-  pointer-events: none;
-  max-width: 300px;
-}
 .tiny-note {
   position: absolute;
   left: 29px;
@@ -749,9 +739,6 @@ body.present .legend {
 }
 body.present .tiny-note {
   display: none;
-}
-.present #co {
-  left: 28px;
 }
 .present #tools {
   opacity: 0.35;
@@ -1059,11 +1046,6 @@ dialog img {
   #status {
     display: none;
   }
-  #co {
-    left: 20px;
-    bottom: 66px;
-    font-size: 8px;
-  }
   .tiny-note {
     display: none;
   }
@@ -1091,9 +1073,6 @@ dialog img {
     right: 16px;
     bottom: 20px;
     transform: none;
-  }
-  .present #co {
-    bottom: 76px;
   }
   .present #tools {
     opacity: 0.6;
@@ -1150,4 +1129,23 @@ dialog img {
   width: 200px;
   height: 44px;
   margin-top: 6px;
+}
+
+/* H: only the graph and its numbers. Controls fade out, then go invisible so Tab can't land on them. */
+body.bare
+  :is(.topbar, aside, #tools, #show-panel, .keypad, .notice, .steps-sheet, .col-menu, .col-tip, .kp-tip) {
+  opacity: 0 !important;
+  visibility: hidden;
+  pointer-events: none !important;
+  transition:
+    opacity 140ms cubic-bezier(0.4, 0, 1, 1),
+    visibility 0s 140ms !important;
+}
+body.unbare :is(.topbar, aside, #tools, #show-panel, .keypad, .notice, .steps-sheet) {
+  animation: hud-in 200ms cubic-bezier(0.23, 1, 0.32, 1);
+}
+@keyframes hud-in {
+  from {
+    opacity: 0;
+  }
 }

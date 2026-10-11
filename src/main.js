@@ -20,6 +20,7 @@ import { initDialogs } from './ui/dialogs.js';
 import { initFps } from './ui/fps.js';
 import { initGeogebraDialog } from './ui/geogebraDialog.js';
 import { initHistory } from './ui/history.js';
+import { initHud } from './ui/hud.js';
 import { initKeyPoints } from './ui/keyPoints.js';
 import { initKeypad } from './ui/keypad.js';
 import { initMatrixDialog } from './ui/matrixDialog.js';
@@ -45,6 +46,7 @@ boot();
 initHistory();
 initKeyPoints();
 initFps();
+initHud();
 kick();
 requestAnimationFrame(() =>
   requestAnimationFrame(() => document.documentElement.classList.remove('preload')),

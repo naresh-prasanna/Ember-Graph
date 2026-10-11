@@ -2,12 +2,13 @@ import { rebuild, setVar, val } from './model.js';
 import { save, saveSoon } from './persistence.js';
 import { frameScene } from './scenes.js';
 import { S } from './state.js';
-import { $, ctx, cv } from '../core/dom.js';
+import { ctx, cv } from '../core/dom.js';
 import { clamp, fmt } from '../math/format.js';
 import { parts, splitTop } from '../math/parser.js';
 import { dseg, ix } from '../math/segments.js';
 import { cameraKick, unprojectPoint } from '../render/camera.js';
 import { kick } from '../render/renderer.js';
+import { pointerAt } from '../ui/fps.js';
 import { keyPointsOf } from '../ui/keyPoints.js';
 
 // The drawn curve closest to a screen point, if one passes within `dist` pixels.
@@ -284,7 +285,8 @@ export function initInteraction() {
     const n = local(e),
       wx = (n[0] - S.V.cx) / S.V.s,
       wy = (S.V.cy - n[1]) / S.V.s;
-    $('#co').textContent = S.mode3 ? '' : `(${fmt(wx)}, ${fmt(wy)})`;
+    if (S.mode3) pointerAt();
+    else pointerAt(fmt(wx), fmt(wy));
     const raw = pointers.get(e.pointerId);
     if (!raw) return;
     const p = unprojectPoint(raw);

@@ -88,23 +88,12 @@ aside {
   border-color: var(--ln);
   color: var(--dim);
 }
-#co {
-  bottom: auto;
-  top: 76px;
-  left: auto;
-  right: 28px;
-  text-align: right;
-  color: var(--ink-3);
-}
 #tools {
   top: 80px;
 }
 @media (max-width: 720px) {
   aside {
     top: auto;
-  }
-  #co {
-    display: none;
   }
   .bottom-bar {
     left: 16px;

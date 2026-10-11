@@ -1,6 +1,7 @@
-/* A debug overlay, toggled with the ` key: frames per second, a frame-time chart, and how long the main
-   jobs took. It runs its own frame loop, so a stall shows even while the graph itself is idle. */
+/* A debug overlay, toggled with the ` key: frames per second, a frame-time chart, how long the main
+   jobs took, and the graph coordinates under the pointer. It runs its own frame loop, so a stall shows even while the graph itself is idle. */
 import { S } from '../app/state.js';
+import { typing } from './hud.js';
 
 const KEY = 'ember-fps',
   W = 200,
@@ -9,6 +10,7 @@ const KEY = 'ember-fps',
 let box = null,
   chart = null,
   text = null,
+  coords = null,
   raf = 0,
   last = 0,
   opened = 0,
@@ -20,6 +22,13 @@ const frames = [],
 export function timing(name, ms) {
   if (!raf) return;
   (jobs[name] ||= []).push([performance.now(), ms]);
+}
+
+// The graph coordinates under the pointer, updated as it moves rather than with the slower stats.
+export function pointerAt(x, y) {
+  if (!raf) return;
+  const t = x === undefined ? 'pointer   –' : `pointer   (${x}, ${y})`;
+  if (coords.textContent !== t) coords.textContent = t;
 }
 
 function recent(list, now) {
@@ -84,7 +93,9 @@ function show(on) {
       chart.width = W;
       chart.height = H;
       text = document.createElement('div');
-      box.append(text, chart);
+      coords = document.createElement('span');
+      coords.textContent = 'pointer   –';
+      box.append(text, coords, chart);
       document.body.append(box);
     }
     box.hidden = false;
@@ -105,8 +116,7 @@ function show(on) {
 
 export function initFps() {
   document.addEventListener('keydown', e => {
-    if (e.key !== '`' || e.ctrlKey || e.metaKey || e.altKey) return;
-    if (e.target.closest?.('input, textarea, select, [contenteditable="true"], .mq')) return;
+    if (e.key !== '`' || e.ctrlKey || e.metaKey || e.altKey || typing(e)) return;
     e.preventDefault();
     show(!raf);
   });
