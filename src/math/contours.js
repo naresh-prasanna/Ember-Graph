@@ -66,14 +66,64 @@ export function stitchContours(segments) {
   for (const e of edges) if (!e.used) walk(e.u, e);
   return paths.sort((a, b) => b.length - a.length);
 }
-export function measurePaths(g) {
-  g.lengths = g.L.map(a => {
-    const d = [0];
-    for (let i = 2; i < a.length; i += 2)
-      d.push(d[d.length - 1] + Math.hypot(a[i] - a[i - 2], a[i + 1] - a[i - 1]));
-    return d;
-  });
+// How much of the segment from (x0, y0) to (x1, y1) lies inside the box [left, top, right, bottom].
+function insideLength(x0, y0, x1, y1, box) {
+  const dx = x1 - x0,
+    dy = y1 - y0;
+  if (
+    x0 >= box[0] &&
+    x0 <= box[2] &&
+    y0 >= box[1] &&
+    y0 <= box[3] &&
+    x1 >= box[0] &&
+    x1 <= box[2] &&
+    y1 >= box[1] &&
+    y1 <= box[3]
+  )
+    return Math.hypot(dx, dy);
+  if (
+    (x0 < box[0] && x1 < box[0]) ||
+    (x0 > box[2] && x1 > box[2]) ||
+    (y0 < box[1] && y1 < box[1]) ||
+    (y0 > box[3] && y1 > box[3])
+  )
+    return 0;
+  let t0 = 0,
+    t1 = 1;
+  for (let k = 0; k < 4; k++) {
+    const p = k === 0 ? -dx : k === 1 ? dx : k === 2 ? -dy : dy,
+      q = k === 0 ? x0 - box[0] : k === 1 ? box[2] - x0 : k === 2 ? y0 - box[1] : box[3] - y0;
+    if (p === 0) {
+      if (q < 0) return 0;
+    } else if (p < 0) t0 = Math.max(t0, q / p);
+    else t1 = Math.min(t1, q / p);
+    if (t0 >= t1) return 0;
+  }
+  return (t1 - t0) * Math.hypot(dx, dy);
+}
+/* Distances along each path, for drawing a curve in by length. Only what is on screen counts: x³ sampled
+   to a hundred thousand pixels past the edges would otherwise spend its whole reveal out of sight and cross
+   the screen in a frame. A curve with nothing on screen is measured in full. */
+export function measurePaths(g, screen) {
+  const box = screen && [-24, -24, screen.W + 24, screen.H + 24],
+    measure = full =>
+      g.L.map(a => {
+        const d = [0];
+        for (let i = 2; i < a.length; i += 2)
+          d.push(
+            d[d.length - 1] +
+              (full
+                ? Math.hypot(a[i] - a[i - 2], a[i + 1] - a[i - 1])
+                : insideLength(a[i - 2], a[i - 1], a[i], a[i + 1], box)),
+          );
+        return d;
+      });
+  g.lengths = measure(!box);
   g.distance = g.lengths.reduce((sum, d) => sum + d[d.length - 1], 0);
+  if (box && !(g.distance > 0)) {
+    g.lengths = measure(true);
+    g.distance = g.lengths.reduce((sum, d) => sum + d[d.length - 1], 0);
+  }
 }
 // Interpolate the leading point by distance, rather than jumping between samples.
 // Interpolate the leading point by distance, rather than jumping between samples.

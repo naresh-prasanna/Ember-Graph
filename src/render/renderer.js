@@ -269,7 +269,6 @@ function backdropKey() {
     S.V.cx,
     S.V.cy,
     S.V.s,
-    ...camera.matrix,
     T.id,
     S.rows.some(r => !r.off && !r.err && r.k?.complex),
   ].join();
@@ -303,13 +302,37 @@ export function draw(dt) {
     ctx.restore();
   } else atmosphere();
   ctx.save();
-  ctx.transform(...camera.matrix);
   camera.trace = null;
   try {
     return drawScene(dt, cached ? undefined : key);
   } finally {
     ctx.restore();
+    if (!level(camera.matrix)) lean();
   }
+}
+/* The camera tilts the finished frame, not every line in it. The scene is drawn level, so the caches above
+   still hold while the camera springs after a pan or a trace, and the frame goes through the tilt in one copy.
+   Redrawing every grid line, number and glowing curve under the tilt each frame was most of the lag. */
+const leaning = { c: null },
+  level = m =>
+    Math.abs(m[0] - 1) + Math.abs(m[1]) + Math.abs(m[2]) + Math.abs(m[3] - 1) < 1e-5 && !m[4] && !m[5];
+function lean() {
+  const c = (leaning.c ||= document.createElement('canvas'));
+  if (c.width !== cv.width || c.height !== cv.height) {
+    c.width = cv.width;
+    c.height = cv.height;
+  }
+  const x = c.getContext('2d');
+  x.globalCompositeOperation = 'copy';
+  x.drawImage(cv, 0, 0);
+  ctx.save();
+  ctx.globalAlpha = 1;
+  ctx.globalCompositeOperation = 'source-over';
+  // The sky shows in the corners the tilt uncovers, as it did when the grid was drawn tilted.
+  atmosphere();
+  ctx.transform(...camera.matrix);
+  ctx.drawImage(c, 0, 0, S.W, S.H);
+  ctx.restore();
 }
 let lastView = null;
 const SEAL = 1.1,
@@ -584,7 +607,6 @@ function stillKey() {
     S.V.cx,
     S.V.cy,
     S.V.s,
-    ...camera.matrix,
     S.fast,
     S.construction,
     S.activeScene,

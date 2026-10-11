@@ -1,6 +1,6 @@
 import { describe, expect, it } from 'vitest';
 import { nullObj, textNotation } from '../src/math/catalog.js';
-import { stitchContours } from '../src/math/contours.js';
+import { measurePaths, stitchContours } from '../src/math/contours.js';
 import { ddValue } from '../src/math/doubleDouble.js';
 import { calcFmt, fmt, nice } from '../src/math/format.js';
 import { curveBounds, curvePoints, escapeSample, parseFractal } from '../src/math/fractals.js';
@@ -818,6 +818,20 @@ describe('contours', () => {
     const paths = stitchContours(square);
     expect(paths).toHaveLength(1);
     expect(paths[0].slice(0, 2)).toEqual(paths[0].slice(-2));
+  });
+
+  it('measures a curve for drawing by its on-screen length only', () => {
+    // From far below the screen, across it, to far above. The screen counts with a 24 px margin.
+    const g = { L: [[50, 100000, 50, 50, 50, 150, 50, -100000]] };
+    measurePaths(g, { W: 100, H: 200 });
+    expect(g.lengths[0][1]).toBeCloseTo(224 - 50, 6);
+    expect(g.distance).toBeCloseTo(174 + 100 + 174, 6);
+  });
+
+  it('measures a curve with nothing on screen in full', () => {
+    const g = { L: [[0, -500, 0, -400]] };
+    measurePaths(g, { W: 100, H: 100 });
+    expect(g.distance).toBe(100);
   });
 
   it('keeps disconnected pieces separate', () => {

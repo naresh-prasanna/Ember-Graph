@@ -559,7 +559,7 @@ function geoRaw(r) {
     }
   }
   if (T === 'imp' || T === 'ineq') g.L = stitchContours(g.L);
-  measurePaths(g);
+  measurePaths(g, S);
   g.n = g.L.reduce((s, a) => s + a.length / 2, 0);
   // Only when the message changes: the row's text is retypeset on every redraw otherwise, which stalls panning.
   if (r.runtimeError === r.errShown) return;
@@ -703,7 +703,7 @@ export function geo(r) {
   g.full = g.L;
   if (THIN.has(r.k?.type) && !r.err) {
     g.L = g.L.map(a => thin(a));
-    measurePaths(g);
+    measurePaths(g, S);
   }
   r.gv = [S.V.cx, S.V.cy, S.V.s, S.W, S.H, S.fast ? 1 : 0];
   r.m = null;
@@ -831,7 +831,7 @@ export function geo(r) {
   g.pts.forEach((q, i) => {
     if (m.pp) q.p = m.pp[i].cur;
   });
-  measurePaths(g);
+  measurePaths(g, S);
   r.m = m;
   if (pw) r.prog = 1;
 }
@@ -874,10 +874,10 @@ export function morphStep(dt) {
       r.g.pts.forEach((q, i) => {
         if (m.pp) q.p = m.rawP[i];
       });
-      measurePaths(r.g);
+      measurePaths(r.g, S);
       r.m = null;
     } else {
-      measurePaths(r.g);
+      measurePaths(r.g, S);
       busy = true;
     }
   }
