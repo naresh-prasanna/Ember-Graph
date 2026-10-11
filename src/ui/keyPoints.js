@@ -2,7 +2,7 @@ import { local } from '../app/interaction.js';
 import { parameterBounds, rowCopies, val } from '../app/model.js';
 import { BRANCH } from '../math/parser.js';
 import { S } from '../app/state.js';
-import { T, tone } from '../app/theme.js';
+import { T, font, tone } from '../app/theme.js';
 import { $, ctx, cv } from '../core/dom.js';
 import { fmt } from '../math/format.js';
 import { findImplicitPoints, findKeyPoints, findParametricPoints } from '../math/keyPoints.js';
@@ -158,7 +158,7 @@ export function drawKeyPoints() {
       x = kpX(p),
       y = kpY(p);
     halo([x, y], p.c, 14, 0.6);
-    ctx.font = '11px monospace';
+    ctx.font = font(11);
     ctx.textAlign = 'left';
     ctx.textBaseline = 'middle';
     const t = `${p.t} (${fmt(p.x)}, ${fmt(p.y)})`,

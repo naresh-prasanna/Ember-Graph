@@ -16,7 +16,7 @@ function canvas(o) {
     gridMinor: a(line, 0.043 * k),
     gridMajor: a(line, 0.09 * k),
     axis: a(warm, 0.36 * k),
-    label: a(line, (o.labelAlpha ?? 0.47) * Math.min(k, 1.6)),
+    label: a(line, (o.labelAlpha ?? 0.56) * Math.min(k, 1.6)),
     labelStrong: a(line, 0.62 * Math.min(k, 1.5)),
     origin: a(warm, 0.8),
     guideTick: a(warm, 0.24 * k),
@@ -124,7 +124,8 @@ export const THEMES = {
     strength: 1.5,
     labelAlpha: 0.72,
     blend: 'source-over',
-    width: 0.35,
+    glow: false,
+    width: 1,
     hot: '#7a2606',
     core: '#ffffff',
     tipBg: '#ffffffee',
@@ -148,6 +149,9 @@ for (const c of ['#e4c29a', '#8e8b84', '#b29b81']) {
   });
   SLOT.set(c, best);
 }
+
+// The UI's monospace stack (--mono): a bare `monospace` on a canvas is Courier New on Windows, thin and fuzzy.
+export const font = px => `${px}px ui-monospace, 'Cascadia Code', Consolas, Menlo, monospace`;
 
 export let T = THEMES.ember;
 let cache = new Map();

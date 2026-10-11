@@ -345,21 +345,31 @@ export function initInteraction() {
       passive: false,
     },
   );
-  new ResizeObserver(() => {
+  // The device-pixel box is the canvas's exact size on screen. At 125% scaling a width rounded from CSS pixels can
+  // be one pixel off, and the browser then resamples the whole canvas. Observing it also catches a move to a
+  // monitor with another scale, which changes no CSS size.
+  const sizer = new ResizeObserver(([e]) => {
     const first = !S.W || !S.H,
-      b = cv.getBoundingClientRect();
+      b = cv.getBoundingClientRect(),
+      exact = e.devicePixelContentBoxSize?.[0],
+      dpr = devicePixelRatio || 1;
     S.V.cx += (b.width - S.W) / 2;
     S.V.cy += (b.height - S.H) / 2;
     S.W = b.width;
     S.H = b.height;
-    S.dpr = Math.min(devicePixelRatio || 1, 2);
-    cv.width = Math.round(S.W * S.dpr);
-    cv.height = Math.round(S.H * S.dpr);
+    S.dpr = Math.min(dpr, 2);
+    cv.width = exact && dpr <= 2 ? exact.inlineSize : Math.round(S.W * S.dpr);
+    cv.height = exact && dpr <= 2 ? exact.blockSize : Math.round(S.H * S.dpr);
     ctx.setTransform(S.dpr, 0, 0, S.dpr, 0, 0);
     if (first && !S.restored) frameScene();
     S.dirty = true;
     kick();
-  }).observe(cv);
+  });
+  try {
+    sizer.observe(cv, { box: 'device-pixel-content-box' });
+  } catch {
+    sizer.observe(cv);
+  }
   document.addEventListener('visibilitychange', () => {
     if (document.hidden) save();
     else {

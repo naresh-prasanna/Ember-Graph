@@ -2,7 +2,7 @@ import { geo, morphStep, surfaceMesh } from '../app/geometry.js';
 import { liveTrace } from '../app/interaction.js';
 import { parameter, setVar } from '../app/model.js';
 import { S, reduceMotion } from '../app/state.js';
-import { T, tone } from '../app/theme.js';
+import { T, font, tone } from '../app/theme.js';
 import { $, ctx, cv } from '../core/dom.js';
 import { revealGeometry } from '../math/contours.js';
 import { complexText } from '../math/complex.js';
@@ -12,7 +12,15 @@ import { timing } from '../ui/fps.js';
 import { drawKeyPoints } from '../ui/keyPoints.js';
 import { panelSpan } from '../ui/sidePanel.js';
 
-/* Rendering retains the original ember trails and additive glow. */
+/* Grid lines sit on whole device pixels: a 0.65 px line at x = 10.3 smears across two pixels at half
+   strength, which reads as out of focus. `hairline` sets the width and returns it in device pixels. */
+function hairline(w) {
+  const n = Math.max(1, Math.round(w * S.dpr));
+  ctx.lineWidth = n / S.dpr;
+  return n;
+}
+const snap = (v, n) => (n % 2 ? Math.floor(v * S.dpr) + 0.5 : Math.round(v * S.dpr)) / S.dpr,
+  pixel = v => Math.round(v * S.dpr) / S.dpr;
 function grid() {
   const st = nice(100 / S.V.s),
     x0 = -S.V.cx / S.V.s,
@@ -21,53 +29,59 @@ function grid() {
     y0 = (S.V.cy - S.H) / S.V.s;
   function lines(step, color) {
     ctx.strokeStyle = color;
-    ctx.lineWidth = 0.65;
+    const n = hairline(0.65);
     ctx.beginPath();
     for (let i = Math.ceil(x0 / step); i <= Math.floor(x1 / step); i++) {
-      const x = S.V.cx + i * step * S.V.s;
+      const x = snap(S.V.cx + i * step * S.V.s, n);
       ctx.moveTo(x, 0);
       ctx.lineTo(x, S.H);
     }
     for (let i = Math.ceil(y0 / step); i <= Math.floor(y1 / step); i++) {
-      const y = S.V.cy - i * step * S.V.s;
+      const y = snap(S.V.cy - i * step * S.V.s, n);
       ctx.moveTo(0, y);
       ctx.lineTo(S.W, y);
     }
     ctx.stroke();
   }
+  ctx.lineCap = 'butt';
   if ((st * S.V.s) / 5 > 11) lines(st / 5, T.gridMinor);
   lines(st, T.gridMajor);
   ctx.strokeStyle = T.axis;
-  ctx.lineWidth = 0.8;
+  const n = hairline(0.8),
+    ax = snap(S.V.cx, n),
+    ay = snap(S.V.cy, n);
   ctx.beginPath();
-  ctx.moveTo(0, S.V.cy);
-  ctx.lineTo(S.W, S.V.cy);
-  ctx.moveTo(S.V.cx, 0);
-  ctx.lineTo(S.V.cx, S.H);
+  ctx.moveTo(0, ay);
+  ctx.lineTo(S.W, ay);
+  ctx.moveTo(ax, 0);
+  ctx.lineTo(ax, S.H);
   ctx.stroke();
-  ctx.font = '10px monospace';
+  ctx.font = font(11);
   ctx.fillStyle = T.label;
   ctx.textAlign = 'center';
   ctx.textBaseline = 'top';
   ctx.beginPath();
+  const ly = pixel(Math.min(Math.max(S.V.cy + 13, 90), S.H - 28));
   for (let i = Math.ceil(x0 / st); i <= Math.floor(x1 / st); i++) {
-    const x = S.V.cx + i * st * S.V.s;
-    ctx.moveTo(x, S.V.cy - 4);
-    ctx.lineTo(x, S.V.cy + 4);
-    if (i) ctx.fillText(fmt(i * st), x, Math.min(Math.max(S.V.cy + 13, 90), S.H - 28));
+    const x = snap(S.V.cx + i * st * S.V.s, n);
+    ctx.moveTo(x, ay - 4);
+    ctx.lineTo(x, ay + 4);
+    if (i) ctx.fillText(fmt(i * st), pixel(x), ly);
   }
   ctx.textAlign = 'right';
   ctx.textBaseline = 'middle';
   // With a complex number on show the plane is the Argand plane: the vertical axis counts in i.
   const argand = S.rows.some(r => !r.off && !r.err && r.k?.complex),
-    tick = v => (!argand ? fmt(v) : fmt(v) === '1' ? 'i' : fmt(v) === '-1' ? '-i' : fmt(v) + 'i');
+    tick = v => (!argand ? fmt(v) : fmt(v) === '1' ? 'i' : fmt(v) === '-1' ? '-i' : fmt(v) + 'i'),
+    lx = pixel(Math.min(Math.max(S.V.cx - 13, 35), S.W - 15));
   for (let i = Math.ceil(y0 / st); i <= Math.floor(y1 / st); i++) {
-    const y = S.V.cy - i * st * S.V.s;
-    ctx.moveTo(S.V.cx - 4, y);
-    ctx.lineTo(S.V.cx + 4, y);
-    if (i) ctx.fillText(tick(i * st), Math.min(Math.max(S.V.cx - 13, 35), S.W - 15), y);
+    const y = snap(S.V.cy - i * st * S.V.s, n);
+    ctx.moveTo(ax - 4, y);
+    ctx.lineTo(ax + 4, y);
+    if (i) ctx.fillText(tick(i * st), lx, pixel(y));
   }
   ctx.stroke();
+  ctx.lineCap = 'round';
   if (argand) {
     ctx.font = 'italic 12px Georgia, serif';
     ctx.fillStyle = T.labelStrong;
@@ -130,7 +144,7 @@ function orbitGuides() {
     a = R / S.V.s;
   if (R > Math.max(S.W, S.H) * 2) return;
   ctx.save();
-  ctx.font = '9px monospace';
+  ctx.font = font(9);
   ctx.textBaseline = 'middle';
   ctx.textAlign = 'center';
   ctx.lineWidth = 0.7;
@@ -210,7 +224,8 @@ function drawGuides(paths, col, alpha) {
   ctx.stroke();
   ctx.restore();
 }
-function glow(path, raw, width = 1.15) {
+const LINE = 1.5;
+function glow(path, raw, width = LINE) {
   const col = tone(raw);
   width += T.width;
   // A translucent, additive stroke across the screen costs the GPU a couple of milliseconds to rasterize, an
@@ -222,20 +237,16 @@ function glow(path, raw, width = 1.15) {
     ctx.stroke(path);
     return;
   }
+  // Strokes rather than shadowBlur, which costs the whole area a path spans on every frame. The glow stays wide
+  // and faint: a tight halo hugging the edge reads as the curve being out of focus, not as light.
   ctx.globalCompositeOperation = T.blend;
   ctx.strokeStyle = rgba(col, 0.035);
   ctx.lineWidth = width + 12;
   ctx.stroke(path);
-  ctx.strokeStyle = rgba(col, 0.07);
-  ctx.lineWidth = width + 4;
+  ctx.strokeStyle = rgba(col, 0.06);
+  ctx.lineWidth = width + 5;
   ctx.stroke(path);
-  // A tight halo in strokes rather than shadowBlur, which costs the whole area a path spans on every frame:
-  // tan(x) spans the screen, and blurring it alone took longer than a frame.
-  const hot = raw === '#ff783b';
-  ctx.strokeStyle = rgba(col, hot ? 0.13 : 0.12);
-  ctx.lineWidth = width + (hot ? 2.6 : 1.8);
-  ctx.stroke(path);
-  ctx.strokeStyle = rgba(col, 0.87);
+  ctx.strokeStyle = col;
   ctx.lineWidth = width;
   ctx.stroke(path);
   ctx.globalCompositeOperation = 'source-over';
@@ -417,7 +428,7 @@ function drawAshes(dt) {
     ctx.translate(S.V.cx - a.view.cx * f, S.V.cy - a.view.cy * f);
     ctx.scale(f, f);
     ctx.globalAlpha = left * left;
-    glow(a.path, a.col, 1.15 / f);
+    glow(a.path, a.col, LINE / f);
     // The first instant runs white-hot, as if the curve caught fire.
     ctx.globalCompositeOperation = T.blend;
     ctx.globalAlpha = Math.max(0, 1 - a.t / 0.18) * 0.7;
@@ -766,7 +777,7 @@ function draw3(dt) {
         Y = x * sa + y * ca;
       return [center + X * S.C.s, S.H * 0.57 - (z * cp + Y * sp) * S.C.s];
     };
-  ctx.font = '9px monospace';
+  ctx.font = font(9);
   ctx.lineWidth = 0.6;
   ctx.strokeStyle = T.mesh;
   ctx.fillStyle = T.meshText;
@@ -875,7 +886,7 @@ function draw3(dt) {
       }
       prev = q;
     }
-    glow(ridge, r.col, 1.15);
+    glow(ridge, r.col);
     if (r.prog < 1 && prev) traceHead(prev, r.col);
   }
   return busy;
@@ -979,7 +990,7 @@ export function kick() {
 
 /* Point inspection: accurate explicit-curve slope; sampled slope elsewhere. */
 function drawMarks() {
-  ctx.font = '11px monospace';
+  ctx.font = font(11);
   ctx.textAlign = 'left';
   ctx.textBaseline = 'middle';
   for (const m of S.marks) {
@@ -1031,7 +1042,7 @@ function drawTrace() {
   ctx.lineWidth = 2;
   ctx.strokeStyle = '#fff';
   ctx.stroke();
-  ctx.font = '12px monospace';
+  ctx.font = font(12);
   ctx.textAlign = 'left';
   ctx.textBaseline = 'middle';
   const w = ctx.measureText(label).width,
