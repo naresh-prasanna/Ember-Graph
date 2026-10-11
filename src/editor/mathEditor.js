@@ -91,11 +91,12 @@ export function makeEditor(r) {
       if (document.activeElement !== el && S.completion?.r === r) closeCompletions();
     }, 120);
   };
-  el.onmousedown = e => {
-    e.preventDefault();
+  /* Puts the cursor at the screen point x, y. A click on the typeset preview lands here too, once the
+     editor has taken its place, so the cursor goes where the click was rather than where it last was. */
+  const placeAt = (x, y) => {
     if (document.activeElement !== el) el.focus();
     st.all = false;
-    let t = e.target,
+    let t = document.elementFromPoint(x, y),
       p = null;
     while (t && t !== el) {
       if (t._p || t._blk) {
@@ -104,24 +105,41 @@ export function makeEditor(r) {
       }
       t = t.parentNode;
     }
+    if (t !== el) p = null;
     if (p && p._p) {
       const b = p.getBoundingClientRect();
       st.cur = {
         blk: p._p[0],
-        i: p._p[1] + (e.clientX > b.left + b.width / 2 ? 1 : 0),
+        i: p._p[1] + (x > b.left + b.width / 2 ? 1 : 0),
       };
     } else if (p)
       st.cur = {
         blk: p._blk,
         i: p._blk.items.length,
       };
-    else
-      st.cur = {
-        blk: st.root,
-        i: st.root.items.length,
-      };
+    else {
+      // Beside the maths rather than on it: the nearest gap on the nearest line, as in a text box.
+      st.cur = { blk: st.root, i: st.root.items.length };
+      let best = Infinity;
+      for (const e of el.firstChild?.children || []) {
+        if (!e._p || e._p[0] !== st.root) continue;
+        const b = e.getBoundingClientRect(),
+          dy = Math.max(b.top - y, 0, y - b.bottom) * 1000;
+        [
+          [b.left, e._p[1]],
+          [b.right, e._p[1] + 1],
+        ].forEach(([edge, i]) => {
+          const d = dy + Math.abs(edge - x);
+          if (d < best) [best, st.cur.i] = [d, i];
+        });
+      }
+    }
     closeCompletions();
     settle();
+  };
+  el.onmousedown = e => {
+    e.preventDefault();
+    placeAt(e.clientX, e.clientY);
   };
   el.onkeydown = e => {
     if (e.ctrlKey && e.shiftKey && !e.altKey && /^[dc]$/i.test(e.key)) {
@@ -288,5 +306,6 @@ export function makeEditor(r) {
     insert,
     focus: () => el.focus(),
     focusAt,
+    placeAt,
   };
 }

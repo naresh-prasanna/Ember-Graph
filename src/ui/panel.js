@@ -1170,7 +1170,7 @@ function mountRow(r) {
   ent.onmousedown = e => {
     if (!r.ed.el.contains(e.target)) {
       e.preventDefault();
-      r.ed.focus();
+      r.ed.placeAt(e.clientX, e.clientY);
     }
   };
   decorate(r);

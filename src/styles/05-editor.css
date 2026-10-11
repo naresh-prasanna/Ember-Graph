@@ -26,7 +26,8 @@
 .mq .v {
   font-style: italic;
 }
-.mq .op {
+/* Shared by the editor and the typeset preview, so a row does not shift when clicked into. */
+.op {
   padding: 0 0.2em;
 }
 .mq .pb {

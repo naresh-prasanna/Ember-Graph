@@ -918,11 +918,15 @@ export function mqDraw(st, el) {
       const it = b.items[i];
       let e;
       if (typeof it === 'string') {
+        // A leading minus, as in −3 or (−x), is a sign and sits tight against what follows.
+        const sign =
+          it === '-' &&
+          (!i || (typeof b.items[i - 1] === 'string' && /^[([{=<>≤≥~,+\-*/^]$/.test(b.items[i - 1])));
         e = mk(
           'span',
           (isWord(it) ? 'kw ' : '') +
             (isL(it) && !up.has(i) ? 'v ' : '') +
-            (/[+\-=<>≤≥]/.test(it) ? 'op' : '') +
+            (/[+\-=<>≤≥~]/.test(it) && !sign ? 'op' : '') +
             (/[()]/.test(it) ? ' pb' : ''),
         );
         e.textContent = it === '*' ? '·' : it === '-' ? '−' : it.trim() || it;
@@ -1007,7 +1011,9 @@ export function mqDraw(st, el) {
         }
       }
       e._p = [b, i];
-      s.append(e);
+      // A long expression wraps at its operators, at the same points as the typeset preview.
+      if (e.classList.contains('op')) s.append(mk('wbr'), e, mk('wbr'));
+      else s.append(e);
     }
     return s;
   }

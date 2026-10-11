@@ -31,7 +31,8 @@ export function nm(n) {
   );
 }
 /* Structured maths display: stacked fractions, radicals, |x|, real sub/superscripts. */
-/* Structured maths display: stacked fractions, radicals, |x|, real sub/superscripts. */
+// Spaced by CSS exactly as the editor spaces them, with a break opportunity either side.
+const OP = s => '&#8203;<span class="op">' + s + '</span>&#8203;';
 const nameH = n => {
   const m = n.match(/^([A-Za-z]+?)(\d+)$/),
     g = x => (own(SYM, x) && x !== 'sqrt' ? SYM[x] : x),
@@ -66,16 +67,16 @@ function R(n) {
             (x, i) =>
               R(x).h +
               (i < n.ops.length
-                ? ' ' +
-                  {
-                    '<': '&lt;',
-                    '>': '&gt;',
-                    '<=': '≤',
-                    '>=': '≥',
-                    '==': '=',
-                    '!=': '≠',
-                  }[n.ops[i]] +
-                  ' '
+                ? OP(
+                    {
+                      '<': '&lt;',
+                      '>': '&gt;',
+                      '<=': '≤',
+                      '>=': '≥',
+                      '==': '=',
+                      '!=': '≠',
+                    }[n.ops[i]],
+                  )
                 : ''),
           )
           .join(''),
@@ -97,19 +98,20 @@ function R(n) {
           };
         case '+':
           return {
-            h: W(a, 10) + Z + '+' + Z + W(b, 11),
+            h: W(a, 10) + OP('+') + W(b, 11),
             p: 10,
           };
         case '-':
           return {
-            h: W(a, 10) + Z + '−' + Z + W(b, 11),
+            h: W(a, 10) + OP('−') + W(b, 11),
             p: 10,
           };
         case '*': {
           const at = x =>
               ['name', 'call', 'list', 'range', 'index'].includes(x.k) ||
               (x.k === 'binary' && x.op === '^' && (x.a.k === 'name' || x.a.k === 'call')),
-            last = x => (x.k === 'binary' && x.op === '*' ? last(x.b) : x),
+            last = x =>
+              x.k === 'binary' && x.op === '*' ? last(x.b) : x.k === 'unary' && x.op === '-' ? last(x.a) : x,
             l = last(n.a),
             // Letters side by side read as one name (hello), so h·e keeps its dot; m x₁ and 2πr need none.
             letters =
@@ -299,12 +301,12 @@ function chunkH(c) {
 function richMath(text) {
   const out = [],
     SYMB = {
-      '=': ' = ',
-      '~': ' ~ ',
-      '<': ' &lt; ',
-      '>': ' &gt; ',
-      '≤': ' ≤ ',
-      '≥': ' ≥ ',
+      '=': OP('='),
+      '~': OP('~'),
+      '<': OP('&lt;'),
+      '>': OP('&gt;'),
+      '≤': OP('≤'),
+      '≥': OP('≥'),
       ',': ',&#8203; ',
       ':': ': ',
     };
