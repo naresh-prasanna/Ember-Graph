@@ -788,6 +788,7 @@ function rebuildRows({ reset = false } = {}, held = null) {
   for (const r of S.rows)
     if (!r.err && !r.info && ['cart', 'function'].includes(r.k?.type) && complexCurve(r))
       r.info = 'Its values are complex, so there is no real curve: graph re(…) or im(…) of it instead';
+  for (const r of S.rows) if (!r.err && !r.info && r.k?.type === 'imp' && r.k.sides) r.info = complexSide(r);
   S.rows.forEach(listInfo);
   fitPass();
   lregPass();
@@ -833,11 +834,41 @@ function rebuildRows({ reset = false } = {}, held = null) {
 }
 // e^(ix): complex wherever it is tried.
 function complexCurve(r) {
+  S.env.complex = true;
   try {
     S.env.cache = nullObj();
-    return [0.7, 1.9].every(x => isComplex(val(r.k.c, { [r.k.param || 'x']: x })));
+    // Both signs: √(−x) is complex for every positive x but a real curve over the negatives.
+    return [0.7, 1.9, -0.6, -1.7].every(x => isComplex(val(r.k.c, { [r.k.param || 'x']: x })));
   } catch {
     return false;
+  } finally {
+    S.env.complex = false;
+  }
+}
+// x² + y² = 10i has no points at all, real or complex: x² + y² is always real. Say which side leaves the reals
+// rather than drawing nothing.
+function complexSide(r) {
+  S.env.complex = true;
+  try {
+    S.env.cache = nullObj();
+    const at = [
+        [0.7, 1.3],
+        [-1.9, 0.4],
+        [-0.6, -1.7],
+        [1.3, -0.8],
+      ].map(([x, y]) => ({ x, y })),
+      odd = r.k.sides.map(c => at.map(p => isComplex(val(c, p)))),
+      i = odd.findIndex((s, j) => s.every(Boolean) && !odd[1 - j].some(Boolean));
+    if (i < 0) return null;
+    const c = r.k.sides[i],
+      side = i ? 'right' : 'left';
+    return coordFree(c.deps)
+      ? `The ${side} side is ${show(val(c, at[0]))}, not a real number, so no point (x, y) satisfies it. Try |…|, re(…) or im(…) of it`
+      : `The ${side} side takes complex values, so there is no real curve to draw. Try |…|, re(…) or im(…) of it`;
+  } catch {
+    return null;
+  } finally {
+    S.env.complex = false;
   }
 }
 // Values that aren't numbers can't be graphed against x, so these say what to give them instead.
