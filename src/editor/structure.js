@@ -644,9 +644,18 @@ function mqClose(st) {
       mqAfter(st, nd);
       return;
     }
-    // log draws its own brackets, so ) closes them.
-    if (nd.t === 'log' && b === nd.blocks[1]) {
-      mqAfter(st, nd);
+    // log and d/dx draw their own brackets, so ) closes them. Anything after the cursor leaves
+    // the body: d/dx(x|·x²) becomes d/dx(x)·x².
+    if ((nd.t === 'log' || nd.t === 'deriv') && b === nd.blocks[MAIN[nd.t]]) {
+      const out = b.items.splice(pos),
+        c = nd.blk,
+        j = c.items.indexOf(nd);
+      if (out.length) c.items.splice(j + 1, 0, ...out);
+      mqFix(st.root);
+      st.cur = {
+        blk: c,
+        i: j + 1,
+      };
       return;
     }
     pos = nd.blk.items.indexOf(nd) + 1;

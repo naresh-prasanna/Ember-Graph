@@ -109,6 +109,18 @@ describe('maths editor tidies empty slots', () => {
     expect(textNotation('d/dx()ln(x)')).toBe('deriv(ln(x),x)');
     expect(textNotation('d/dx()x^2 + 1')).toBe('deriv(x^2 + 1,x)');
     expect(textNotation('d/dx()x^2 = 0')).toBe('deriv(x^2,x)= 0');
+    // ) closes the drawn brackets of d/dx: what follows the cursor multiplies outside.
+    {
+      const st = mqNew('');
+      for (const k of [...'d/dxx*x^2']) {
+        mqType(st, k);
+        mqPrune(st);
+      }
+      st.cur = { blk: st.root.items[0].blocks[1], i: 1 };
+      mqType(st, ')');
+      mqPrune(st);
+      expect(mqSer(st.root)).toBe('deriv(x,x)*x^(2)');
+    }
     expect(moves([...'int∫⌫'])).toBe('');
     expect(moves([...'int∫→x^2'])).toBe('integral(x^(2),x)');
     expect(moves([...'int∫→x sin(x)→+1'])).toBe('integral(xsin(x),x)+1');
