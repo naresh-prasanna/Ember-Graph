@@ -277,15 +277,16 @@ export function regCard(r) {
   box.innerHTML =
     (S.params.length
       ? sec(
-          'REGRESSION PARAMETERS',
+          S.solutions ? 'SOLUTIONS' : 'REGRESSION PARAMETERS',
           S.params.map(([n, v]) => nm(n) + ' = ' + fmt(v)),
         )
       : '') +
-    sec(
-      'STATISTICS',
-      S.stats.map(([n, v]) => nm(n) + ' = ' + fmt(v)),
-    ) +
-    sec('RESIDUALS', [nm('e') + ' = [' + res + ']']);
+    (S.solutions
+      ? ''
+      : sec(
+          'STATISTICS',
+          S.stats.map(([n, v]) => nm(n) + ' = ' + fmt(v)),
+        ) + sec('RESIDUALS', [nm('e') + ' = [' + res + ']']));
   r.slEl.append(box);
 }
 /* The working behind an integral row's formula, behind a toggle, with a tab for each method that gives a

@@ -3,6 +3,7 @@ import { nullObj, textNotation } from '../src/math/catalog.js';
 import { measurePaths, stitchContours } from '../src/math/contours.js';
 import { ddValue } from '../src/math/doubleDouble.js';
 import { calcFmt, fmt, nice, toFraction } from '../src/math/format.js';
+import { findRoots } from '../src/math/regression.js';
 import { curveBounds, curvePoints, escapeSample, parseFractal } from '../src/math/fractals.js';
 import { findImplicitPoints, findKeyPoints, findParametricPoints } from '../src/math/keyPoints.js';
 import { mxDet, mxInv } from '../src/math/matrix.js';
@@ -746,6 +747,14 @@ describe('formatting', () => {
     expect(fmt(123456)).toBe('1.23e+5');
     expect(fmt(NaN)).toBe('—');
     expect(nice(37)).toBe(50);
+  });
+  it('finds every real root of a scalar equation', () => {
+    const quad = findRoots(a => a * a + 5 * a + 6);
+    expect(quad).toHaveLength(2);
+    expect(quad[0]).toBeCloseTo(-3, 6);
+    expect(quad[1]).toBeCloseTo(-2, 6);
+    const touch = findRoots(a => (a - 2) * (a - 2));
+    expect(touch.some(x => Math.abs(x - 2) < 1e-4)).toBe(true);
   });
   it('reads answers as fractions only when they plainly are one', () => {
     const dd = src => ddValue(compileExpr(src), () => NaN);

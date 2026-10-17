@@ -20,7 +20,7 @@ import {
   stillReal,
   undefinedReason,
 } from '../math/parser.js';
-import { lm, solve, sse } from '../math/regression.js';
+import { findRoots, lm, solve, sse } from '../math/regression.js';
 import { calculus, hasIndefinite, integralEquation, solveODE } from '../math/symbolic.js';
 import { columnName, fitData, isTableText, readTable } from '../math/table.js';
 import { evalGeo, freeNames, geoName, geoShapes, isGeoText, parseGeo, readGeo } from '../io/geogebraEval.js';
@@ -1355,6 +1355,35 @@ function lregPass(held) {
           });
         },
         res = () => pairs().map(([a, b]) => a - b);
+      // One unknown and one equation, like a² + 5a + 6 ~ 0: find every real root, not just one fit.
+      if (ps.length === 1 && pairs().length === 1) {
+        const p = ps[0],
+          guess = Number.isFinite(S.vars[p]) ? S.vars[p] : 0,
+          f = x => {
+            S.vars[p] = x;
+            S.env.cache = nullObj();
+            return val(k.L[0]) - val(k.R[0]);
+          },
+          lo = S.VM[p] ? S.VM[p].min : -50,
+          hi = S.VM[p] ? S.VM[p].max : 50;
+        let roots = findRoots(f, lo, hi);
+        if (!roots.length && (lo !== -50 || hi !== 50)) roots = findRoots(f);
+        if (roots.length) {
+          const pick = roots.reduce((b, x) => (Math.abs(x - guess) < Math.abs(b - guess) ? x : b));
+          S.vars[p] = pick;
+          r.stat = {
+            params: roots.map(x => [p, x]),
+            stats: [['RMSE', 0]],
+            resid: [0],
+            solutions: true,
+          };
+          r.info = '';
+          Object.assign(S.VM[p], sliderRange(p, pick));
+          S.env.cache = nullObj();
+          continue;
+        }
+        S.vars[p] = guess;
+      }
       if (ps.length) {
         ps.forEach(p => (S.vars[p] = 1));
         lm(ps, res, S.vars);
