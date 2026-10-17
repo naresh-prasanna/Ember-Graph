@@ -504,8 +504,9 @@ function relation(t) {
   return null;
 }
 let lastRows = [];
-const drawable = r => !r.off && !r.err && r.k && !['const', 'surf', 'fractal', 'calc'].includes(r.k.type),
-  onScreen = r => drawable(r) && (r.g?.L.length || r.g?.pts.length),
+const drawable = r =>
+    !r.off && !r.err && r.k && (!['const', 'surf', 'fractal', 'calc'].includes(r.k.type) || r.k.areaPlot),
+  onScreen = r => drawable(r) && (r.g?.L.length || r.g?.pts.length || r.g?.fill),
   typingIn = r => !!r.inp && globalThis.document?.activeElement?.closest?.('.row') === r.inp.closest('.row');
 /* A keystroke that breaks the row being typed in, like deleting a point's comma, keeps the row's last good
    drawing until it is whole again, so the graph morphs to the edit instead of vanishing and redrawing.
@@ -784,6 +785,7 @@ function rebuildRows({ reset = false } = {}, held = null) {
     k.type = 'calc';
     k.c = k.bare;
     calcInfo(r);
+    shadeIntegral(r);
   }
   for (const r of S.rows) if (r.k?.type !== 'function') symbolicRow(r);
   for (const r of S.rows)
@@ -1160,6 +1162,34 @@ function calcInfo(r) {
   } catch (e) {
     r.err = e.message;
   }
+}
+// ∫ₐᵇ f(x) dx is a number, and also the shaded area under y = f(x) from a to b.
+function shadeIntegral(r) {
+  r.k.areaPlot = null;
+  const ast = r.k.bare?.ast;
+  if (r.err || !ast || ast.k !== 'call' || ast.n !== 'integral' || ast.a.length !== 4) return;
+  if (ast.a[1].k !== 'name') return;
+  let lo, hi;
+  try {
+    lo = valueOf({ ast: ast.a[2] });
+    hi = valueOf({ ast: ast.a[3] });
+  } catch {
+    return;
+  }
+  if (
+    typeof lo !== 'number' ||
+    typeof hi !== 'number' ||
+    !Number.isFinite(lo) ||
+    !Number.isFinite(hi) ||
+    lo === hi
+  )
+    return;
+  r.k.areaPlot = {
+    f: { ast: ast.a[0] },
+    v: ast.a[1].n,
+    a: { ast: ast.a[2] },
+    b: { ast: ast.a[3] },
+  };
 }
 // An equation with no x or y on either side, like 2 + 2 = 4, is checked rather than drawn.
 function checkInfo(r) {

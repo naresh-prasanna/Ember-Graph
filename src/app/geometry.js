@@ -376,6 +376,50 @@ function geoRaw(r) {
           ? screen(x, y)
           : null;
       });
+    } else if (T === 'calc' && k.areaPlot) {
+      // A definite integral: the integrand as a curve between its bounds, and the area down to y = 0.
+      let lo, hi;
+      try {
+        lo = val(k.areaPlot.a);
+        hi = val(k.areaPlot.b);
+      } catch (e) {
+        r.runtimeError = e.message;
+        return;
+      }
+      if (
+        typeof lo !== 'number' ||
+        typeof hi !== 'number' ||
+        !Number.isFinite(lo) ||
+        !Number.isFinite(hi) ||
+        lo === hi
+      )
+        return;
+      const a = Math.min(lo, hi),
+        b = Math.max(lo, hi),
+        v = k.areaPlot.v,
+        // Only the part that meets the screen: the rest of the interval is off to the side.
+        left = Math.max(a, X(-40)),
+        right = Math.min(b, X(S.W + 40));
+      if (left >= right) return;
+      sample(
+        samples(Math.max(2, Math.ceil((right - left) * S.V.s)) * (S.fast ? 1 : 4)),
+        u => {
+          const x = left + (right - left) * u,
+            scope = { [v]: x, x },
+            y = val(k.areaPlot.f, scope);
+          return typeof y === 'number' && Number.isFinite(y) ? screen(x, y) : null;
+        },
+        true,
+      );
+      const axis = S.V.cy,
+        fill = (g.fill ||= new Path2D());
+      for (const L of g.L) {
+        if (L.length < 4) continue;
+        fill.moveTo(L[0], axis);
+        for (let i = 0; i < L.length; i += 2) fill.lineTo(L[i], L[i + 1]);
+        fill.lineTo(L[L.length - 2], axis);
+        fill.closePath();
+      }
     } else if (T === 'field') {
       // A slope field for dy/dx = F(x, y): a dash on a grid fixed to the plane, tilted to F there.
       const gap = 38 / S.V.s,

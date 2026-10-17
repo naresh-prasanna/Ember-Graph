@@ -678,7 +678,9 @@ function drawScene(dt, back) {
         ctx.fillStyle = rgba(col, 0.16 * r.prog);
         ctx.fill(moved(F, m));
       } else if (g.fill) {
-        ctx.fillStyle = rgba(col, 0.055 * r.prog * (r.m ? 0.35 : 1));
+        // Definite integrals need a clearer wash than inequality regions.
+        const a = (r.k.areaPlot ? 0.28 : 0.055) * r.prog * (r.m ? 0.35 : 1);
+        ctx.fillStyle = rgba(col, a);
         ctx.fill(moved(g.fill, m));
       }
       if (g.band) {
