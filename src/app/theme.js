@@ -152,8 +152,8 @@ for (const c of ['#e4c29a', '#8e8b84', '#b29b81']) {
   SLOT.set(c, best);
 }
 
-// The UI's font stacks (--mono, --sans): a bare `monospace` on a canvas is Courier New on Windows, thin and fuzzy.
-export const font = px => `${px}px ui-monospace, 'Cascadia Code', Consolas, Menlo, monospace`,
+// Key-point and HUD labels use the UI sans (tabular digits via CSS where possible; canvas uses the same stack).
+export const font = px => `${px}px Inter, 'Segoe UI', system-ui, Arial, sans-serif`,
   sans = (px, weight = 400) => `${weight} ${px}px Inter, 'Segoe UI', system-ui, Arial, sans-serif`;
 
 export let T = THEMES.ember;

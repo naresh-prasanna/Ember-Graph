@@ -6,8 +6,9 @@
   font-size: 22px;
 }
 .mq > .blk.e:after,
-.equation-display:empty:before {
-  font: 15px var(--mono);
+.equation-display:empty:before,
+.mq > .blk.e:after {
+  font: 400 15px/1.4 var(--sans);
 }
 /* The header's buttons and every row's × share one 36px column on the panel's right edge: the same size,
    6px in from the edge, so + sits directly above the ×s. */
@@ -85,7 +86,7 @@
   font-size: 12px;
 }
 .err.answer {
-  font-size: 17px;
+  font-size: 22px;
 }
 .sl {
   gap: 11px;

@@ -1,11 +1,55 @@
-export const fmt = v =>
-  !Number.isFinite(v)
-    ? '—'
-    : Math.abs(v) < 1e-15
-      ? '0'
-      : Math.abs(v) >= 1e5 || Math.abs(v) < 1e-3
-        ? v.toExponential(2)
-        : String(+v.toPrecision(5));
+/* Shared display formatting for computed numbers (results, axes, key points, sliders). */
+const SUP = {
+  0: '⁰',
+  1: '¹',
+  2: '²',
+  3: '³',
+  4: '⁴',
+  5: '⁵',
+  6: '⁶',
+  7: '⁷',
+  8: '⁸',
+  9: '⁹',
+  '+': '⁺',
+  '-': '⁻',
+};
+const toSup = n =>
+  String(n)
+    .split('')
+    .map(c => SUP[c] || c)
+    .join('');
+const commas = int => int.replace(/\B(?=(\d{3})+(?!\d))/g, ',');
+const group = s => {
+  const neg = s.startsWith('-');
+  const body = neg ? s.slice(1) : s;
+  const [a, b] = body.split('.');
+  return (neg ? '-' : '') + commas(a) + (b != null ? '.' + b : '');
+};
+// Full-precision string for tooltips / copy; not for on-screen chrome.
+export const exactFmt = v => (!Number.isFinite(v) ? '' : Object.is(v, -0) ? '0' : String(v));
+export const fmt = v => {
+  if (!Number.isFinite(v)) return '—';
+  if (Math.abs(v) < 1e-10) return '0';
+  const a = Math.abs(v);
+  // Large or tiny: math-style scientific (1.5536×10⁵), not 1.55e+5.
+  if (a >= 1e9 || a < 1e-4) {
+    let exp = Math.floor(Math.log10(a));
+    let mant = v / 10 ** exp;
+    mant = +mant.toPrecision(5);
+    if (Math.abs(mant) >= 10) {
+      mant /= 10;
+      exp++;
+    } else if (mant !== 0 && Math.abs(mant) < 1) {
+      mant *= 10;
+      exp--;
+    }
+    const m = String(+mant.toPrecision(5));
+    return `${m}×10${toSup(exp)}`;
+  }
+  // Kill binary float dust, then ~8 significant figures (155360.4117 → 155,360.41).
+  const cleaned = +(+v).toPrecision(12);
+  return group(String(+cleaned.toPrecision(8)));
+};
 export const calcFmt = v =>
   !Number.isFinite(v)
     ? 'undefined'

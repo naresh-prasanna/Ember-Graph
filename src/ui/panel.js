@@ -82,6 +82,7 @@ export function showError(r) {
       fr.ariaLabel = frTip;
       setTip(fr, frTip);
     }
+    const plusC = '<span class="math-tail">\u00a0+ <i>C</i></span>';
     if (solved)
       r.errEl.innerHTML =
         `<span class="sym-note">${
@@ -89,11 +90,11 @@ export function showError(r) {
             ? `General solution of <i>dy</i>/<i>dx</i> = ${astHTML(solved.deq)}`
             : 'With the constant the antiderivatives leave'
         }</span>` + `<span class="sym-series">${astHTML(solved.left)} = ${astHTML(solved.right)}</span>`;
-    else if (formula) r.errEl.innerHTML = '= ' + astHTML(formula) + (r.symIndef ? ' + <i>C</i>' : '');
+    else if (formula) r.errEl.innerHTML = '= ' + astHTML(formula) + (r.symIndef ? plusC : '');
     else if (series)
       r.errEl.innerHTML =
         `<span class="sym-note">As a power series near ${seriesVar(r)} = ${fmt(r.seriesAt || 0).replace(/-/g, '−')}</span>` +
-        `<span class="sym-series">≈ ${astHTML(r.series)} + ⋯${r.symIndef ? ' + <i>C</i>' : ''}</span>`;
+        `<span class="sym-series">≈ ${astHTML(r.series)} + ⋯${r.symIndef ? plusC : ''}</span>`;
     else if (answer && r.k.complex && r.polar) {
       r.errEl.textContent = r.info;
       const note = document.createElement('span');
@@ -122,6 +123,10 @@ export function showError(r) {
     r.errEl.classList.toggle('list-open', !r.err && !!r.listOpen && r.listFull?.short === r.info);
     r.errEl.style.color = (r.err && !step) || answer || formula || series || solved ? '' : 'var(--dim)';
     r.errEl.classList.toggle('answer', answer || !!formula || !!series || !!solved);
+    // Full-precision value behind a rounded numeric readout.
+    if (answer && r.infoExact) setTip(r.errEl, r.infoExact);
+    else if (r.value instanceof Color) setTip(r.errEl, '');
+    else if (!answer && !formula && !series && !solved) setTip(r.errEl, '');
   }
 }
 export function syncSliders() {
@@ -482,7 +487,7 @@ function renderSheet(r) {
   if (el.dataset.k === shown) return;
   el.dataset.k = shown;
   const scroll = el.querySelector('.ss-scroll'),
-    C = r.symIndef ? ' + <i>C</i>' : '',
+    C = r.symIndef ? '<span class="math-tail">\u00a0+ <i>C</i></span>' : '',
     m = s?.methods[i];
   const answer =
     r.sym || r.symArea

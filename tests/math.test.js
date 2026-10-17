@@ -749,10 +749,19 @@ describe('calculator precision', () => {
 describe('formatting', () => {
   it('formats axis and readout values', () => {
     expect(fmt(0)).toBe('0');
-    expect(fmt(1 / 3)).toBe('0.33333');
-    expect(fmt(123456)).toBe('1.23e+5');
     expect(fmt(NaN)).toBe('—');
     expect(nice(37)).toBe(50);
+  });
+  it('snaps tiny values, groups thousands, and uses math scientific notation', () => {
+    expect(fmt(-3.55e-15)).toBe('0');
+    expect(fmt(1e-12)).toBe('0');
+    expect(fmt(155360.4117)).toBe('155,360.41');
+    expect(fmt(123456)).toBe('123,456');
+    expect(fmt(0.1 + 0.2)).toBe('0.3');
+    expect(fmt(1e10)).toMatch(/^1×10¹⁰$/);
+    expect(fmt(3e-5)).toMatch(/^3×10⁻⁵$/);
+    expect(fmt(0.00003)).toMatch(/×10/);
+    expect(fmt(0.0001)).toBe('0.0001');
   });
   it('finds every real root of a scalar equation', () => {
     const quad = findRoots(a => a * a + 5 * a + 6);

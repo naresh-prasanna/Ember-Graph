@@ -21,6 +21,7 @@
   --on-em: #1c0e05;
   --mono: ui-monospace, 'Cascadia Code', Consolas, monospace;
   --sans: Inter, 'Segoe UI', Arial, sans-serif;
+  --math: 'Cambria Math', 'STIX Two Math', Georgia, serif;
   color-scheme: dark;
 }
 * {
@@ -289,10 +290,7 @@ aside {
   align-items: center;
 }
 .equation-display {
-  font:
-    italic 23px Georgia,
-    'Times New Roman',
-    serif;
+  font: 400 23px/1.5 var(--math);
   color: var(--ink);
   position: absolute;
   inset: 0;
@@ -330,7 +328,7 @@ aside {
   color: var(--hot);
 }
 .err {
-  font: 10px/1.5 var(--mono);
+  font: 400 12px/1.45 var(--sans);
   color: var(--em-2);
   overflow-wrap: anywhere;
 }
@@ -342,8 +340,9 @@ aside {
   align-items: center;
   gap: 9px;
   margin-top: 13px;
-  font: 10px var(--mono);
+  font: 12px var(--sans);
   color: var(--dim);
+  font-variant-numeric: tabular-nums;
 }
 .sl > span {
   display: none;
@@ -380,6 +379,8 @@ aside {
   background: var(--em-soft);
 }
 .sl b {
+  font: 400 12px var(--sans);
+  font-variant-numeric: tabular-nums;
   font-weight: 400;
   color: var(--ink-2);
   text-align: right;

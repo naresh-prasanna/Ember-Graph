@@ -45,7 +45,7 @@
   display: block;
   line-height: 34px;
   font-style: normal;
-  font-family: 'Cambria Math', 'STIX Two Math', Georgia, serif;
+  font-family: var(--math);
 }
 .equation-display i {
   font-style: italic;
@@ -66,10 +66,7 @@
 .sl > span {
   display: inline-block;
   min-width: 30px;
-  font:
-    15px 'Cambria Math',
-    Georgia,
-    serif;
+  font: 15px var(--math);
   color: var(--ink-2);
 }
 .sl > span sub {
@@ -88,10 +85,7 @@
   display: flex;
   flex-wrap: wrap;
   gap: 6px 26px;
-  font:
-    17px 'Cambria Math',
-    Georgia,
-    serif;
+  font: 17px var(--math);
   color: var(--ink);
 }
 .rg span {

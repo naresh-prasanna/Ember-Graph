@@ -212,11 +212,18 @@ aside {
   pointer-events: none;
 }
 .err.answer {
-  text-align: right;
-  font: 15px/1.4 var(--mono);
+  text-align: left;
+  font: 400 22px/1.45 var(--math);
   color: var(--hot);
-  text-shadow: 0 0 16px rgb(var(--em-rgb) / 0.333);
-  padding-top: 2px;
+  padding-top: 4px;
+  /* Same family as the input; scroll rather than orphan a lone "+ C". */
+  white-space: nowrap;
+  overflow-x: auto;
+  overflow-y: hidden;
+  scrollbar-width: thin;
+}
+.err.answer .math-tail {
+  white-space: nowrap;
 }
 
 .row.is-table:not(:has(.mq:focus)) .entry,
@@ -232,11 +239,7 @@ aside {
   display: flex;
   align-items: baseline;
   gap: 10px;
-  font:
-    19px 'Cambria Math',
-    'STIX Two Math',
-    Georgia,
-    serif;
+  font: 19px var(--math);
   color: var(--ink);
 }
 .geo-head b {
@@ -642,14 +645,16 @@ aside {
 /* An integral with no formula: a quiet note, then the series in the answer style. */
 .err.answer .sym-note {
   display: block;
-  font: 10px var(--mono);
-  letter-spacing: 0.04em;
+  font: 400 12px/1.45 var(--sans);
+  letter-spacing: 0.02em;
   color: var(--dim);
-  text-shadow: none;
+  white-space: normal;
 }
 .err.answer .sym-series {
   display: block;
   margin-top: 3px;
+  font: 400 22px/1.45 var(--math);
+  white-space: nowrap;
 }
 .err.answer .sym-note.polar {
   margin-top: 4px;
@@ -832,7 +837,7 @@ body.present .steps-sheet {
   padding-bottom: 22px;
   margin-bottom: 22px;
   border-bottom: 1px solid rgb(var(--fg-rgb) / 0.063);
-  font-family: 'Cambria Math', Georgia, serif;
+  font-family: var(--math);
 }
 .ss-q {
   font-size: 28px;
@@ -842,7 +847,6 @@ body.present .steps-sheet {
   padding-left: 1em;
   font-size: 24px;
   color: var(--hot);
-  text-shadow: 0 0 18px rgb(var(--em-rgb) / 0.267);
 }
 .steps-tabs {
   display: flex;
@@ -882,7 +886,7 @@ body.present .steps-sheet {
 }
 .mi {
   margin-inline: 0.12em;
-  font-family: 'Cambria Math', Georgia, serif;
+  font-family: var(--math);
   font-size: 1.1em;
   color: var(--ink-2);
   white-space: nowrap;
@@ -894,10 +898,7 @@ body.present .steps-sheet {
   gap: 0;
   margin-top: 2px;
   padding: 0.3em 0;
-  font:
-    21px/1.35 'Cambria Math',
-    Georgia,
-    serif;
+  font: 400 21px/1.35 var(--math);
   color: var(--ink);
   overflow-x: auto;
 }

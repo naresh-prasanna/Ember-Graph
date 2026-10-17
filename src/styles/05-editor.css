@@ -5,11 +5,7 @@
 .mq {
   display: none;
   position: relative;
-  font:
-    23px/1.5 'Cambria Math',
-    'STIX Two Math',
-    Georgia,
-    serif;
+  font: 400 23px/1.5 var(--math);
   color: var(--hot);
   min-height: 36px;
   padding: 5px 0;
@@ -135,13 +131,15 @@
 }
 .mq > .blk.e:after {
   content: 'Type an equation';
-  font: 13px var(--mono);
+  font: 400 15px/1.4 var(--sans);
   color: var(--dim);
+  font-style: normal;
 }
 .equation-display:empty:before {
   content: 'Type an equation';
-  font: 13px var(--mono);
+  font: 400 15px/1.4 var(--sans);
   color: var(--dim);
+  font-style: normal;
 }
 .mq {
   overflow-wrap: normal;

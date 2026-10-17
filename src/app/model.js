@@ -6,7 +6,7 @@ import { complexOp, complexText, imOf, isComplex, reOf } from '../math/complex.j
 import { DIST_NAMES, Dist } from '../math/distributions.js';
 import { Color, Matrix, Point, Shape, TTest, Tone, colorSliders, show } from '../math/values.js';
 import { ddValue } from '../math/doubleDouble.js';
-import { calcFmt, clamp, fmt, toFraction } from '../math/format.js';
+import { calcFmt, clamp, exactFmt, fmt, toFraction } from '../math/format.js';
 import { FRACTALS, parseFractal } from '../math/fractals.js';
 import {
   BRANCH,
@@ -1180,13 +1180,14 @@ function calcInfo(r) {
     S.env.cache = nullObj();
     const v = ddValue(r.k.c, val);
     r.value = carded(v) ? v : null;
-    r.info = Array.isArray(v)
-      ? '= ' + listFmt(v, r)
-      : typeof v === 'object' && v
-        ? valueInfo(v)
-        : Number.isNaN(v)
-          ? 'Undefined' + why(r.k.c)
-          : '= ' + calcFmt(v);
+    r.infoExact = '';
+    if (Array.isArray(v)) r.info = '= ' + listFmt(v, r);
+    else if (typeof v === 'object' && v) r.info = valueInfo(v);
+    else if (Number.isNaN(v)) r.info = 'Undefined' + why(r.k.c);
+    else {
+      r.info = '= ' + fmt(v);
+      r.infoExact = exactFmt(v);
+    }
     const frac = typeof v === 'number' ? toFraction(v) : null;
     r.frac = frac && { n: frac[0], d: frac[1], info: r.info };
   } catch (e) {
