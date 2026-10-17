@@ -1591,7 +1591,7 @@ const repairExpression = s => {
       .replace(/\^\(\s*\)/g, '')
       .replace(/\/\(\s*\)/g, '')
       // A point being edited: (−, 4) and (, 4) are (0, 4), (3, ) is (3, 0), and a cleared one is left out.
-      .replace(/[+\-*/^]\s*(?=[,)\]])/g, '')
+      .replace(/[+\-−*/·^]\s*(?=[,)\]])/g, '')
       .replace(/,\s*\(\s*\)(?=\s*[,)\]])/g, '')
       .replace(/(?<![\w)\]])\(\s*,/g, '(0,')
       .replace(/(?<![\w)\]])\(([^(),]*),\s*\)/g, '($1,0)')

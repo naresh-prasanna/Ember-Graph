@@ -645,11 +645,17 @@ function mqClose(st) {
       return;
     }
     // log and d/dx draw their own brackets, so ) closes them. Anything after the cursor leaves
-    // the body: d/dx(x|·x²) becomes d/dx(x)·x².
+    // the body: d/dx(x|·x²) becomes d/dx(x)·x². A trailing · or + that would be left hanging
+    // either goes outside with what follows, or is dropped if nothing follows.
     if ((nd.t === 'log' || nd.t === 'deriv') && b === nd.blocks[MAIN[nd.t]]) {
       const out = b.items.splice(pos),
         c = nd.blk,
-        j = c.items.indexOf(nd);
+        j = c.items.indexOf(nd),
+        bin = x => typeof x === 'string' && '+-−*/·^'.includes(x);
+      while (b.items.length && bin(b.items.at(-1))) {
+        const op = b.items.pop();
+        if (out.length) out.unshift(op);
+      }
       if (out.length) c.items.splice(j + 1, 0, ...out);
       mqFix(st.root);
       st.cur = {

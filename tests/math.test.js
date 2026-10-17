@@ -121,6 +121,19 @@ describe('maths editor tidies empty slots', () => {
       mqPrune(st);
       expect(mqSer(st.root)).toBe('deriv(x,x)*x^(2)');
     }
+    // Cursor after a trailing · still yields d/dx(x³)·x², not an unfinished d/dx(x³·).
+    {
+      const st = mqNew('');
+      for (const k of [...'d/dxx^3*x^2']) {
+        mqType(st, k);
+        mqPrune(st);
+      }
+      const body = st.root.items[0].blocks[1];
+      st.cur = { blk: body, i: body.items.indexOf('*') + 1 };
+      mqType(st, ')');
+      mqPrune(st);
+      expect(mqSer(st.root)).toBe('deriv(x^(3),x)*x^(2)');
+    }
     expect(moves([...'int∫⌫'])).toBe('');
     expect(moves([...'int∫→x^2'])).toBe('integral(x^(2),x)');
     expect(moves([...'int∫→x sin(x)→+1'])).toBe('integral(xsin(x),x)+1');
