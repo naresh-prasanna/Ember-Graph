@@ -1,6 +1,8 @@
 /* Shared hover tips: elements with data-tip get a custom popover instead of the browser's title. */
 let tip,
   tipEl = null,
+  // Element waiting for the delayed show; distinct from tipEl so leave can cancel before open.
+  pendingEl = null,
   timer = 0,
   warmUntil = 0;
 
@@ -9,7 +11,7 @@ export function setTip(el, text) {
   if (!text) {
     delete el.dataset.tip;
     el.removeAttribute('title');
-    if (tipEl === el) hideTip();
+    if (tipEl === el || pendingEl === el) hideTip();
     return;
   }
   el.dataset.tip = text;
@@ -18,6 +20,8 @@ export function setTip(el, text) {
 
 export function hideTip() {
   clearTimeout(timer);
+  timer = 0;
+  pendingEl = null;
   if (tipEl) warmUntil = performance.now() + 280;
   tipEl = null;
   if (tip) tip.hidden = true;
@@ -35,11 +39,27 @@ function place(el) {
   tip.classList.toggle('below', !above);
 }
 
+function stillWantsTip(el) {
+  if (!el.isConnected || !el.dataset.tip) return false;
+  if (el.matches(':hover')) return true;
+  const ae = document.activeElement;
+  return ae === el || el.contains(ae);
+}
+
 function show(el) {
   clearTimeout(timer);
+  timer = 0;
+  pendingEl = el;
   const warm = performance.now() < warmUntil,
     open = () => {
+      timer = 0;
+      // Cursor left (or tip text cleared) during the delay — do not pop a stale tip.
+      if (pendingEl !== el || !stillWantsTip(el)) {
+        pendingEl = null;
+        return;
+      }
       tipEl = el;
+      pendingEl = null;
       tip.textContent = el.dataset.tip;
       tip.classList.toggle('warm', warm);
       tip.hidden = false;
@@ -79,9 +99,10 @@ export function initTips() {
     'pointerout',
     e => {
       const el = e.target.closest?.('[data-tip]');
-      if (!el || tipEl !== el) return;
+      if (!el) return;
       if (e.relatedTarget?.closest?.('[data-tip]') === el) return;
-      hideTip();
+      // Cancel a pending delayed show, not only an already-visible tip.
+      if (tipEl === el || pendingEl === el) hideTip();
     },
     true,
   );
@@ -90,7 +111,7 @@ export function initTips() {
     if (el && (e.target === el || e.target.matches?.(':focus-visible'))) show(el);
   });
   document.addEventListener('focusout', e => {
-    if (tipEl && !e.relatedTarget?.closest?.('[data-tip]')) hideTip();
+    if ((tipEl || pendingEl) && !e.relatedTarget?.closest?.('[data-tip]')) hideTip();
   });
   // Rows and menus are built after init; catch late title= attributes.
   new MutationObserver(muts => {
