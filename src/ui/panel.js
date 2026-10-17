@@ -15,6 +15,7 @@ import {
   val,
 } from '../app/model.js';
 import { saveSoon } from '../app/persistence.js';
+import { hideTip, setTip } from './tip.js';
 import { frameFractal } from '../app/scenes.js';
 import { PAL, S, reduceMotion } from '../app/state.js';
 import { tone } from '../app/theme.js';
@@ -77,7 +78,9 @@ export function showError(r) {
     r.errEl.closest('.row')?.classList.toggle('has-frac', !!frac);
     if (fr) {
       fr.setAttribute('aria-pressed', String(!!r.asFrac));
-      fr.title = fr.ariaLabel = r.asFrac ? 'Show as a decimal' : 'Show as a fraction';
+      const frTip = r.asFrac ? 'Show as a decimal' : 'Show as a fraction';
+      fr.ariaLabel = frTip;
+      setTip(fr, frTip);
     }
     if (solved)
       r.errEl.innerHTML =
@@ -178,7 +181,7 @@ export function sliders(r) {
     input.oninput = () => setVar(n, +input.value);
     input.style.setProperty('--fill', ((v - m.min) / (m.max - m.min)) * 100 + '%');
     input.step = m.step || 'any';
-    label.title = 'Change the limits';
+    setTip(label, 'Change the limits');
     label.onclick = () => {
       d.closest('.row')?.classList.add('edit-limits');
       lim.querySelector('input').focus();
@@ -657,7 +660,7 @@ export function tableUI(r) {
       input.setAttribute('aria-label', 'Column ' + (j + 1) + ' heading');
       if (K?.err) {
         input.classList.add('bad');
-        input.title = K.err;
+        setTip(input, K.err || '');
       }
     } else if (computed) {
       const v = cols[j - 1]?.ys[i];
@@ -672,7 +675,7 @@ export function tableUI(r) {
       input.setAttribute('aria-label', 'Row ' + (i + 1) + ', column ' + (j + 1));
       if (K?.cells[i] && !Number.isFinite(j ? cols[j - 1]?.ys[i] : xs[i])) {
         input.classList.add('bad');
-        input.title = K.cells[i].err ? 'Not a number yet: ' + K.cells[i].err : 'This cell has no value';
+        setTip(input, K.cells[i].err ? 'Not a number yet: ' + K.cells[i].err : 'This cell has no value');
       }
     }
     if (!input.readOnly) {
@@ -925,7 +928,7 @@ export function geoUI(r) {
   head.className = 'geo-head';
   head.innerHTML = `<b>${r.k.name ? geoLabel(r.k.name) : 'Object'}</b><span>from GeoGebra</span>`;
   exp.textContent = r.k.exp.replace(/\[/g, '(').replace(/\]/g, ')');
-  exp.title = r.k.exp;
+  setTip(exp, r.k.exp);
   let what = '',
     G = null;
   try {
@@ -949,7 +952,7 @@ export function geoUI(r) {
   toggle.dataset.box = 'toggle';
   toggle.textContent = 'Box count';
   toggle.setAttribute('aria-pressed', String(!!r.box?.on));
-  toggle.title = 'Cover the drawing with a grid and count the squares it touches';
+  setTip(toggle, 'Cover the drawing with a grid and count the squares it touches');
   toggle.onclick = () => {
     r.box = r.box?.on ? null : { on: true };
     geoUI(r);
@@ -1071,9 +1074,9 @@ export function decorate(r) {
     r.preview.innerHTML = r.text.trim().startsWith('"')
       ? r.text.replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/^\s*"/, '').replace(/"\s*$/, '')
       : pretty(r.text);
-    r.preview.title = r.text;
+    setTip(r.preview, r.text);
   }
-  if (r.inp) r.inp.title = r.text;
+  if (r.inp) setTip(r.inp, r.text);
   if (r.label)
     r.label.textContent =
       ({
@@ -1127,7 +1130,7 @@ function helperGroup(count) {
   head.className = 'helpers-head';
   head.setAttribute('aria-expanded', String(helpersOpen));
   head.innerHTML = `<span class="helpers-arrow" aria-hidden="true"></span><b>Construction steps</b><small>${count} hidden</small>`;
-  head.title = 'The pieces the drawing is built from. Show one to move it into the main list.';
+  setTip(head, 'The pieces the drawing is built from. Show one to move it into the main list.');
   head.onclick = () => {
     helpersOpen = !helpersOpen;
     box.classList.toggle('open', helpersOpen);
@@ -1152,7 +1155,7 @@ function mountRow(r) {
   el.className = 'row' + (r.off ? ' off' : '');
   el.style.setProperty('--curve', tone(r.col));
   el.innerHTML =
-    '<div class="gut"><span class="idx"></span><button class="dot" aria-label="Show or hide. Right-click to change color" title="Right-click to change color"></button><button class="fr" aria-pressed="false"><svg viewBox="0 0 24 24" aria-hidden="true"><rect x="9" y="4.5" width="6" height="5" rx="1.2" /><path d="M6.5 12h11" /><rect x="9" y="14.5" width="6" height="5" rx="1.2" /></svg></button></div><div class="col"><div class="row-label"></div><div class="entry"><div class="equation-display" aria-hidden="true"></div><input type="text" spellcheck="false" autocomplete="off" autocapitalize="off" placeholder="Type an equation"></div><div class="err" role="status"></div><div class="sls"></div></div><button class="x" aria-label="Delete"><svg class="icon" viewBox="0 0 24 24" aria-hidden="true"><path d="m7 7 10 10M17 7 7 17" /></svg></button>';
+    '<div class="gut"><span class="idx"></span><button class="dot" aria-label="Show or hide. Right-click to change color" data-tip="Right-click to change color"></button><button class="fr" aria-pressed="false"><svg viewBox="0 0 24 24" aria-hidden="true"><rect x="9" y="4.5" width="6" height="5" rx="1.2" /><path d="M6.5 12h11" /><rect x="9" y="14.5" width="6" height="5" rx="1.2" /></svg></button></div><div class="col"><div class="row-label"></div><div class="entry"><div class="equation-display" aria-hidden="true"></div><input type="text" spellcheck="false" autocomplete="off" autocapitalize="off" placeholder="Type an equation"></div><div class="err" role="status"></div><div class="sls"></div></div><button class="x" aria-label="Delete"><svg class="icon" viewBox="0 0 24 24" aria-hidden="true"><path d="m7 7 10 10M17 7 7 17" /></svg></button>';
   el.querySelector('.idx').textContent = i + 1;
   const dot = el.querySelector('.dot');
   dot.setAttribute('aria-pressed', String(!r.off));
@@ -1220,11 +1223,13 @@ function mountRow(r) {
   else $('#rows').append(el);
   bindCompletions(r);
 }
-/* The color menu: the palette, any color variables (C = rgb(255, 120, 0) colors a row and follows its
+/* The color menu: the palette, any color variables (C = hsv(h, 1, 1) colors a row and follows its
    sliders, as in Desmos), or any color at all from the system picker. */
 function colorMenu(r, anchor) {
   document.querySelector('.col-menu')?.remove();
+  hideTip();
   const menu = document.createElement('div'),
+    active = c => !r.colVar && c.toLowerCase() === r.col.toLowerCase(),
     set = (col, colVar = null) => {
       r.colVar = colVar;
       if (col) r.col = col;
@@ -1251,7 +1256,8 @@ function colorMenu(r, anchor) {
       b.type = 'button';
       b.className = 'col-swatch';
       b.style.setProperty('--sw', col);
-      b.title = b.ariaLabel = label;
+      b.ariaLabel = label;
+      setTip(b, label);
       b.setAttribute('aria-pressed', String(pressed));
       b.onclick = () => {
         pick();
@@ -1274,34 +1280,51 @@ function colorMenu(r, anchor) {
   menu.ariaLabel = 'Curve color';
   section(
     'Color',
-    PAL.map(c =>
-      swatch(tone(c), tone(c), !r.colVar && c.toLowerCase() === r.col.toLowerCase(), () => set(c)),
-    ),
+    PAL.map(c => swatch(tone(c), tone(c), active(c), () => set(c))),
   );
+  const vars = colorVariables();
   section(
-    'From a variable',
-    colorVariables().map(([n, c]) => {
+    'Variables',
+    vars.map(([n, c]) => {
       const b = swatch(c.hex, `${n} = ${c}`, r.colVar === n, () => set(c.hex, n));
       b.classList.add('named');
       b.textContent = n;
       return b;
     }),
   );
+  const row = document.createElement('div');
+  row.className = 'col-row';
   const custom = document.createElement('label');
   custom.className = 'col-custom';
-  custom.innerHTML = '<input type="color"> Custom…';
+  custom.setAttribute('aria-pressed', String(!r.colVar && !PAL.some(active)));
+  custom.innerHTML = '<input type="color" aria-label="Custom color">';
+  setTip(custom, 'Pick any color');
   const input = custom.querySelector('input');
   input.value = r.col;
-  input.oninput = () => set(input.value);
-  menu.append(custom);
-  const tip = document.createElement('p');
-  tip.className = 'col-tip';
-  tip.textContent = 'Add C = rgb(255, 120, 0) as an expression, then pick C here.';
-  if (!colorVariables().length) menu.append(tip);
+  input.oninput = () => {
+    set(input.value);
+    custom.setAttribute('aria-pressed', 'true');
+  };
+  const lab = document.createElement('span');
+  lab.className = 'col-custom-label';
+  lab.textContent = 'Custom';
+  row.append(custom, lab);
+  menu.append(row);
+  if (!vars.length) {
+    const more = document.createElement('details');
+    more.className = 'col-more';
+    more.innerHTML =
+      '<summary>Color from a variable</summary>' +
+      '<p>Add <code>C = hsv(h, 1, 1)</code> with a slider on <code>h</code> for a live rainbow — then choose <code>C</code> above.</p>';
+    menu.append(more);
+  }
   document.body.append(menu);
-  const a = anchor.getBoundingClientRect();
-  menu.style.left = Math.min(innerWidth - menu.offsetWidth - 8, a.right + 8) + 'px';
-  menu.style.top = Math.max(8, Math.min(innerHeight - menu.offsetHeight - 8, a.top - 8)) + 'px';
+  const a = anchor.getBoundingClientRect(),
+    left = Math.min(innerWidth - menu.offsetWidth - 8, Math.max(8, a.left + a.width / 2 - 18)),
+    top = Math.max(8, Math.min(innerHeight - menu.offsetHeight - 8, a.bottom + 10));
+  menu.style.left = left + 'px';
+  menu.style.top = top + 'px';
+  menu.style.setProperty('--nub', a.left + a.width / 2 - left + 'px');
   addEventListener('pointerdown', outside, true);
   addEventListener('keydown', esc, true);
   menu.querySelector('button')?.focus();

@@ -28,9 +28,11 @@ import { initMatrixDialog } from './ui/matrixDialog.js';
 import { initPanel } from './ui/panel.js';
 import { initSidePanel } from './ui/sidePanel.js';
 import { initThemes } from './ui/themeMenu.js';
+import { initTips } from './ui/tip.js';
 import { savedTheme, setTheme } from './app/theme.js';
 
 setTheme(savedTheme(), false);
+initTips();
 initPanel();
 initSidePanel();
 initThemes();

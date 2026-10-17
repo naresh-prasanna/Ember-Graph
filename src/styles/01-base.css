@@ -1376,7 +1376,7 @@ kbd {
 
 /* H: only the graph and its numbers. Controls fade out, then go invisible so Tab can't land on them. */
 body.bare
-  :is(.topbar, aside, #tools, #show-panel, .keypad, .notice, .steps-sheet, .col-menu, .col-tip, .kp-tip) {
+  :is(.topbar, aside, #tools, #show-panel, .keypad, .notice, .steps-sheet, .col-menu, .ui-tip, .kp-tip) {
   opacity: 0 !important;
   visibility: hidden;
   pointer-events: none !important;

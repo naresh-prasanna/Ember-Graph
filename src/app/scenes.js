@@ -1,6 +1,7 @@
 import { loadState, saveSoon, state } from './persistence.js';
 import { S, reduceMotion } from './state.js';
 import { $ } from '../core/dom.js';
+import { setTip } from '../ui/tip.js';
 import { FRACTALS, curveBounds, curvePoints } from '../math/fractals.js';
 import { camera, cameraKick } from '../render/camera.js';
 import { kick } from '../render/renderer.js';
@@ -361,7 +362,7 @@ function renderPresets() {
     del.className = 'preset-delete';
     del.dataset.delete = p.id;
     del.setAttribute('aria-label', `Delete preset ${p.name}`);
-    del.title = 'Delete preset';
+    setTip(del, 'Delete preset');
     del.textContent = '×';
     item.append(presetButton(p.id, [p.name, `Saved ${new Date(p.saved).toLocaleDateString()}`]), del);
     menu.append(item);
