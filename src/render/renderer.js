@@ -970,11 +970,13 @@ function draw3(dt) {
    milliseconds of it per frame, and the rest are drawn from their last samples carried to the new view. */
 const BUDGET = 6;
 let turn = 0;
+// Shifted old samples are fine while panning. After a real zoom they open into gaps, so re-sample.
 const movable = r =>
   r.g &&
   r.gv &&
   r.gv[3] === S.W &&
   r.gv[4] === S.H &&
+  Math.abs(Math.log((S.V.s || 1) / (r.gv[2] || 1))) < 0.06 &&
   !r.m &&
   !(r.prog < 1) &&
   !['fractal', 'surf'].includes(r.k?.type);

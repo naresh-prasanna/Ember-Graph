@@ -598,6 +598,11 @@ describe('parser and evaluator', () => {
     expect(area.definite).toBe(true);
     expect(area.methods[0].tree.rule).toBe('Evaluate between the bounds');
     expect(area.methods[0].tree.kids[0].rule).toBe('Power rule');
+    // Numeric bounds (calc-row definite integrals) still get antiderivative working.
+    const boxed = steps('integral(x^2, x, -2, 3)');
+    expect(boxed.definite).toBe(true);
+    expect(boxed.methods.length).toBeGreaterThan(0);
+    expect(boxed.methods[0].tree.rule).toBe('Evaluate between the bounds');
     const tan = steps('integral(tan(x), x)').methods[0].tree;
     expect(tan.rule).toBe('Write as sine over cosine');
     expect(tan.kids[0].rule).toBe('Substitution');

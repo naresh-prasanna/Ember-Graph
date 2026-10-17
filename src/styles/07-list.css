@@ -13,18 +13,28 @@ aside {
   margin-right: auto;
 }
 #more {
+  display: grid;
+  place-items: center;
   width: 30px;
   height: 30px;
   padding: 0;
   border: 1px solid transparent;
   border-radius: 7px;
-  font: 300 20px/1 var(--sans);
   color: var(--ink-2);
   background: none;
   transition:
     color 0.15s,
     background 0.15s,
     border-color 0.15s;
+}
+#more .icon {
+  display: block;
+  width: 18px;
+  height: 18px;
+  fill: none;
+  stroke: currentColor;
+  stroke-width: 1.6;
+  stroke-linecap: round;
 }
 #more:hover,
 #more[aria-expanded='true'] {

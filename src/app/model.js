@@ -1137,6 +1137,28 @@ function symbolicRow(r) {
     }
     return;
   }
+  // A bare definite integral is a calc row (a number + shaded area). Still attach symSrc so Show steps works.
+  if (!r.err && k?.type === 'calc') {
+    const src = k.bare?.ast || k.c?.ast;
+    if (src?.k === 'call' && (src.n === 'integral' || src.n === 'deriv')) {
+      r.symSrc = src;
+      try {
+        const res = calculus(src, S.env);
+        if (res) {
+          [r.series, r.symIndef] = [res.series || null, res.indefinite];
+          [r.seriesAt, r.graphFrom, r.symArea] = [res.center || 0, res.from || 0, res.area || null];
+          // Keep the numeric calc readout for ∫ₐᵇ; only swap in a formula for derivatives / indefinite ∫.
+          if (src.n === 'deriv' || res.indefinite) {
+            if (res.ast || res.graph) k.c = { ...k.c, ast: res.ast || res.graph };
+            if (res.ast) r.sym = res.ast;
+          }
+        }
+      } catch (e) {
+        if (!r.info) r.info = e.message;
+      }
+    }
+    return;
+  }
   if (r.err || !k || !['cart', 'cartY', 'function'].includes(k.type) || k.reg || k.dist) return;
   const src = k.c?.ast;
   try {

@@ -484,12 +484,17 @@ function renderSheet(r) {
   const scroll = el.querySelector('.ss-scroll'),
     C = r.symIndef ? ' + <i>C</i>' : '',
     m = s?.methods[i];
-  let html =
-    `<div class="ss-title"><span class="ss-q">${astHTML(src)}</span>` +
-    (r.sym || r.symArea
+  const answer =
+    r.sym || r.symArea
       ? `<span class="ss-a">= ${astHTML(r.sym || r.symArea)}${C}</span>`
-      : `<span class="ss-a">≈ ${astHTML(r.series)} + ⋯${C}</span>`) +
-    '</div>';
+      : r.series
+        ? `<span class="ss-a">≈ ${astHTML(r.series)} + ⋯${C}</span>`
+        : r.info?.startsWith('=')
+          ? `<span class="ss-a">${escapeHTML(r.info)}</span>`
+          : m
+            ? `<span class="ss-a">= ${astHTML(m.tree.to)}</span>`
+            : '';
+  let html = `<div class="ss-title"><span class="ss-q">${astHTML(src)}</span>${answer}</div>`;
   if (s?.note) html += `<p class="steps-warn">${say(s.note)}</p>`;
   if (!s) html += '<p class="steps-note">No working to show for this one.</p>';
   else if (!m) html += seriesHTML(r, s);
@@ -534,9 +539,11 @@ export function stepsCard(r) {
     else closeSteps();
   }
   const src = r.symSrc,
+    // Definite ∫ₐᵇ keeps its numeric answer on the row; steps still open from symSrc alone.
     integral =
       src?.k === 'call' &&
-      ((src.n === 'integral' && (r.sym || r.series || r.symArea)) || (src.n === 'deriv' && r.sym));
+      ((src.n === 'integral' && (r.sym || r.series || r.symArea || src.a?.length === 4)) ||
+        (src.n === 'deriv' && r.sym));
   if (!r.slEl || r.err || !(integral || r.symEq)) {
     // Mid-edit the row is not an integral for a moment: the sheet waits, hidden, for it to be one again.
     if (sheetRow === r && sheet) sheet.hidden = true;
