@@ -47,8 +47,15 @@
   font-style: normal;
   font-family: var(--math);
 }
-.equation-display i {
+.equation-display i,
+.err.answer i,
+.step-work i,
+.ss-title i,
+.mi i,
+.sl-lim-name i {
   font-style: italic;
+  /* Same italic correction as .mq .v — display/results use <i>, not .v. */
+  padding-inline-end: 0.12em;
 }
 .equation-display sup,
 .equation-display sub {

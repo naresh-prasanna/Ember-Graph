@@ -568,6 +568,9 @@ export function mqBack(st) {
    ')' closes the nearest open group (or wraps everything to its left if none is open). Backspace on a bracket
    removes just that bracket and the group re-forms around its neighbours. */
 const isP = x => !!x && typeof x === 'object' && x.t === 'paren';
+/* Ghost styling is only for an untyped closing delimiter (gr). A completed pair — including one
+   whose opener was auto-inserted by typing ')' — draws both sides at full weight. */
+export const parenCloserGhost = it => !!(it && it.gr);
 function mqSol(st) {
   const { blk, i } = st.cur,
     l = blk.items[i - 1],
@@ -1041,8 +1044,9 @@ export function mqDraw(st, el) {
           v = it.t === 'abs' ? '|' : '';
         a.textContent = v || '(';
         z.textContent = v || ')';
-        if (it.gl) a.classList.add('gh');
-        if (it.gr) z.classList.add('gh');
+        // Only the untyped closer is a ghost. An auto-inserted opener (gl) still completes the pair —
+        // both sides must match in weight once they are drawn.
+        if (parenCloserGhost(it)) z.classList.add('gh');
         e.append(a, blockEl(it.blocks[0]), z);
         const hint = st.cur.blk === it.blocks[0] && paramHint(b.items, i, it.blocks[0].items);
         if (hint) {

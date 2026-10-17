@@ -29,9 +29,22 @@ import {
 import { antiderivativeSeries, integralSeries } from '../src/math/series.js';
 import { evalGeo, freeNames, geoName, geoShapes, parseGeo, writeGeo } from '../src/io/geogebraEval.js';
 import { boxCells, boxDimension } from '../src/math/boxCount.js';
-import { mqBack, mqInsert, mqNew, mqPrune, mqRight, mqSer, mqType, mqVert } from '../src/editor/structure.js';
+import {
+  mqBack,
+  mqInsert,
+  mqNew,
+  mqPrune,
+  mqRight,
+  mqSer,
+  mqType,
+  mqVert,
+  parenCloserGhost,
+} from '../src/editor/structure.js';
 import { NAMES, SPELLINGS, nameMatch } from '../src/math/names.js';
 import { Color, colorSliders } from '../src/math/values.js';
+import { readFileSync } from 'node:fs';
+import { fileURLToPath } from 'node:url';
+import { dirname, join } from 'node:path';
 
 describe('maths editor tidies empty slots', () => {
   const typed = keys => {
@@ -763,6 +776,38 @@ describe('formatting', () => {
     expect(fmt(0.00003)).toMatch(/×10/);
     expect(fmt(0.0001)).toBe('0.0001');
   });
+});
+
+describe('math italic correction and delimiter ghosts', () => {
+  it('ghosts only an untyped closing parenthesis, not a completed wrap-from-)', () => {
+    expect(parenCloserGhost({ gr: true })).toBe(true);
+    expect(parenCloserGhost({ gl: true })).toBe(false);
+    expect(parenCloserGhost({ gl: true, gr: false })).toBe(false);
+    expect(parenCloserGhost({ gr: false })).toBe(false);
+    // Typing f) builds a complete pair whose opener may be flagged gl for backspace, but is not ghosted.
+    const st = mqNew('');
+    for (const k of [...'f)']) {
+      mqType(st, k);
+      mqPrune(st);
+    }
+    const p = st.root.items[0];
+    expect(p.t).toBe('paren');
+    expect(parenCloserGhost(p)).toBe(false);
+  });
+  it('keeps italic correction and the shared math stack in CSS', () => {
+    const root = join(dirname(fileURLToPath(import.meta.url)), '..'),
+      editor = readFileSync(join(root, 'src/styles/05-editor.css'), 'utf8'),
+      math = readFileSync(join(root, 'src/styles/04-math.css'), 'utf8'),
+      base = readFileSync(join(root, 'src/styles/01-base.css'), 'utf8');
+    expect(base).toMatch(/--math:\s*'Cambria Math'/);
+    expect(editor).toMatch(/\.mq \.v\s*\{[^}]*padding-inline-end:\s*0\.12em/s);
+    expect(math).toMatch(/padding-inline-end:\s*0\.12em/);
+    expect(base).toMatch(/\.sl-lim input\s*\{[^}]*font-variant-numeric:\s*tabular-nums/s);
+    expect(base).toMatch(/\.sl-lim-name\s*\{[^}]*var\(--math\)/s);
+  });
+});
+
+describe('formatting extras', () => {
   it('finds every real root of a scalar equation', () => {
     const quad = findRoots(a => a * a + 5 * a + 6);
     expect(quad).toHaveLength(2);

@@ -21,10 +21,20 @@
 }
 .mq .v {
   font-style: italic;
+  /* Italic correction: CSS italic on Cambria Math has no OpenType MATH italic-correction,
+     so overhanging letters (f, j, y, …) collide with ), ], superscripts and the caret. */
+  padding-inline-end: 0.12em;
 }
 /* Shared by the editor and the typeset preview, so a row does not shift when clicked into. */
 .op {
   padding: 0 0.2em;
+}
+/* Extra advance into a following delimiter or script (f(x), (f), f²). */
+.mq .v + .nd,
+.mq .nd > .blk + .pb,
+.mq .v + sup,
+.mq .v + sub {
+  margin-inline-start: 0.04em;
 }
 .mq .pb {
   font-size: 1.12em;
@@ -87,9 +97,9 @@
   margin: 0 -0.8px;
   animation: mqblink 1s steps(1) infinite;
 }
-/* Italic letters lean past their box, so the caret after one moves clear of the glyph without shifting the text. */
+/* Caret after an italic letter: padding-inline-end already clears the overhang. */
 .mq .v + .cur {
-  margin: 0 calc(-0.14em - 0.8px) 0 calc(0.14em - 0.8px);
+  margin: 0 -0.8px;
 }
 /* Ctrl+A selects the whole expression. */
 .mq.all > .blk {

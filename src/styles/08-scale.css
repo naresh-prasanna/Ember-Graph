@@ -115,12 +115,12 @@
   padding: 4px 6px;
 }
 .sl-lim {
-  font-size: 18px;
+  font-size: 16px;
 }
 .sl-lim input {
-  width: 66px;
-  padding: 7px 8px;
-  font-size: 14px;
+  width: 52px;
+  padding: 4px 6px;
+  font-size: 12px;
 }
 
 /* Top bar */
