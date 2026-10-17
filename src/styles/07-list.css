@@ -1272,12 +1272,15 @@ body.present .steps-sheet {
   content: '+';
   position: absolute;
   inset: 5px;
-  display: grid;
-  place-items: center;
+  display: flex;
+  align-items: center;
+  justify-content: center;
   border-radius: 50%;
   background: var(--raise);
   color: var(--ink-2);
-  font: 600 14px/1 var(--sans);
+  font: 600 15px/1 var(--sans);
+  /* Plus glyph sits high in the em box; nudge to optical centre. */
+  padding: 1px 0 0;
   pointer-events: none;
 }
 .col-custom input {
@@ -1301,8 +1304,10 @@ body.present .steps-sheet {
   padding-top: 8px;
 }
 .col-more summary {
-  color: var(--dim);
+  color: var(--ink-3);
   font-size: 11px;
+  font-weight: 500;
+  letter-spacing: 0.02em;
   cursor: pointer;
   list-style: none;
 }
@@ -1310,18 +1315,47 @@ body.present .steps-sheet {
   display: none;
 }
 .col-more summary:hover {
-  color: var(--ink-3);
+  color: var(--ink-2);
 }
-.col-more p {
-  margin: 6px 0 0;
+.col-math {
+  margin-top: 8px;
+}
+.col-segs {
+  display: inline-flex;
+  gap: 0;
+  margin-bottom: 8px;
+  border: 1px solid rgb(var(--fg-rgb) / 0.14);
+  border-radius: 6px;
+  overflow: hidden;
+}
+.col-segs button {
+  margin: 0;
+  padding: 3px 10px;
+  border: 0;
+  border-radius: 0;
+  background: transparent;
   color: var(--dim);
-  font-size: 11px;
+  font: 500 11px/1.2 var(--sans);
+  cursor: pointer;
+}
+.col-segs button + button {
+  border-left: 1px solid rgb(var(--fg-rgb) / 0.14);
+}
+.col-segs button[aria-selected='true'] {
+  background: rgb(var(--fg-rgb) / 0.08);
+  color: var(--ink-2);
+}
+.col-math-copy {
+  margin: 0;
+  color: var(--dim);
+  font-size: 12px;
   line-height: 1.45;
 }
-.col-more code {
+.col-math-copy code {
   padding: 1px 5px;
   border-radius: 4px;
   background: rgb(var(--fg-rgb) / 0.08);
   color: var(--ink-2);
   font: 11px/1.4 var(--mono);
+  white-space: nowrap;
 }

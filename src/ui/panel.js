@@ -1067,7 +1067,14 @@ function focusTableCell(r, i, j, caret) {
 }
 export function decorate(r) {
   const row = r.inp?.closest('.row');
-  row?.style.setProperty('--curve', tone(r.k?.type === 'fractal' ? '#ff783b' : r.col));
+  // A colour definition paints its own radio dot with the live colour, matching the swatch below.
+  const live =
+    r.value instanceof Color
+      ? r.value.hex
+      : Array.isArray(r.value) && r.value[0] instanceof Color
+        ? r.value[0].hex
+        : null;
+  row?.style.setProperty('--curve', tone(r.k?.type === 'fractal' ? '#ff783b' : live || r.col));
   row?.classList.toggle('blank', !r.text.trim());
   if (r.preview && isTableText(r.text)) r.preview.textContent = 'Table';
   else if (r.preview && isGeoText(r.text)) r.preview.textContent = 'GeoGebra object';
@@ -1078,6 +1085,8 @@ export function decorate(r) {
     setTip(r.preview, r.text);
   }
   if (r.inp) setTip(r.inp, r.text);
+  // The rgb · hsv readout must stay clear of hover tips.
+  if (r.errEl && r.value instanceof Color) setTip(r.errEl, '');
   if (r.label)
     r.label.textContent =
       ({
@@ -1156,9 +1165,19 @@ function mountRow(r) {
   el.className = 'row' + (r.off ? ' off' : '');
   el.style.setProperty('--curve', tone(r.col));
   el.innerHTML =
-    '<div class="gut"><span class="idx"></span><button class="dot" aria-label="Show or hide. Right-click to change color" data-tip="Right-click to change color"></button><button class="fr" aria-pressed="false"><svg viewBox="0 0 24 24" aria-hidden="true"><rect x="9" y="4.5" width="6" height="5" rx="1.2" /><path d="M6.5 12h11" /><rect x="9" y="14.5" width="6" height="5" rx="1.2" /></svg></button></div><div class="col"><div class="row-label"></div><div class="entry"><div class="equation-display" aria-hidden="true"></div><input type="text" spellcheck="false" autocomplete="off" autocapitalize="off" placeholder="Type an equation"></div><div class="err" role="status"></div><div class="sls"></div></div><button class="x" aria-label="Delete"><svg class="icon" viewBox="0 0 24 24" aria-hidden="true"><path d="m7 7 10 10M17 7 7 17" /></svg></button>';
+    '<div class="gut"><span class="idx"></span><button class="dot"></button><button class="fr" aria-pressed="false"><svg viewBox="0 0 24 24" aria-hidden="true"><rect x="9" y="4.5" width="6" height="5" rx="1.2" /><path d="M6.5 12h11" /><rect x="9" y="14.5" width="6" height="5" rx="1.2" /></svg></button></div><div class="col"><div class="row-label"></div><div class="entry"><div class="equation-display" aria-hidden="true"></div><input type="text" spellcheck="false" autocomplete="off" autocapitalize="off" placeholder="Type an equation"></div><div class="err" role="status"></div><div class="sls"></div></div><button class="x" aria-label="Delete"><svg class="icon" viewBox="0 0 24 24" aria-hidden="true"><path d="m7 7 10 10M17 7 7 17" /></svg></button>';
   el.querySelector('.idx').textContent = i + 1;
-  const dot = el.querySelector('.dot');
+  const dot = el.querySelector('.dot'),
+    touchUi = () => matchMedia('(pointer: coarse)').matches && matchMedia('(hover: none)').matches,
+    colorTip = () => (touchUi() ? 'Tap to change color' : 'Right-click to change color');
+  const tipDot = () => {
+    const tip = colorTip();
+    dot.setAttribute('aria-label', 'Show or hide. ' + tip);
+    setTip(dot, tip);
+  };
+  tipDot();
+  matchMedia('(pointer: coarse)').addEventListener?.('change', tipDot);
+  matchMedia('(hover: none)').addEventListener?.('change', tipDot);
   dot.setAttribute('aria-pressed', String(!r.off));
   r.inp = el.querySelector('input');
   r.inp.setAttribute('aria-label', 'Expression ' + (i + 1));
@@ -1193,11 +1212,51 @@ function mountRow(r) {
       del(S.rows.indexOf(r));
     }
   };
-  dot.oncontextmenu = e => {
-    e.preventDefault();
+  const openColor = e => {
+    e?.preventDefault?.();
     colorMenu(r, dot);
   };
-  dot.onclick = () => {
+  dot.oncontextmenu = e => {
+    e.preventDefault();
+    openColor();
+  };
+  // Touch/pen: tap or hold opens the colour menu; mouse click still toggles visibility.
+  let hold = 0,
+    touchOpen = false,
+    touchMoved = false;
+  dot.addEventListener('pointerdown', e => {
+    if (e.pointerType !== 'touch' && e.pointerType !== 'pen') return;
+    touchOpen = false;
+    touchMoved = false;
+    hold = setTimeout(() => {
+      hold = 0;
+      touchOpen = true;
+      openColor();
+    }, 420);
+  });
+  const clearHold = () => {
+    if (hold) clearTimeout(hold);
+    hold = 0;
+  };
+  dot.addEventListener('pointerup', clearHold);
+  dot.addEventListener('pointercancel', clearHold);
+  dot.addEventListener('pointermove', e => {
+    if (!hold) return;
+    if (Math.abs(e.movementX) > 6 || Math.abs(e.movementY) > 6) {
+      touchMoved = true;
+      clearHold();
+    }
+  });
+  dot.onclick = e => {
+    if (touchOpen) {
+      touchOpen = false;
+      return;
+    }
+    // Touch/pen: a short tap opens colour (hold does too). Mouse click still toggles visibility.
+    if (!touchMoved && (e.pointerType === 'touch' || e.pointerType === 'pen')) {
+      openColor();
+      return;
+    }
     r.off = !r.off;
     if (r.helper && !r.off) {
       // Showing a construction step lifts it into the main list, just above the empty row.
@@ -1223,6 +1282,71 @@ function mountRow(r) {
   else if (group) $('#rows').insertBefore(el, group);
   else $('#rows').append(el);
   bindCompletions(r);
+}
+const COLOR_HINT_KEY = 'ember-color-hint-tab',
+  colorHintCopy = {
+    rgb: {
+      before: 'Type ',
+      code: 'C = rgb(255, g, 0)',
+      after:
+        ' in a new row. Red, green and blue each go from 0 to 255. Drag g to fade red to yellow, then pick C here.',
+    },
+    hsv: {
+      before: 'Type ',
+      code: 'C = hsv(h, 1, 1)',
+      after:
+        ' in a new row. Hue is the color wheel, 0 to 360. Saturation and brightness are 0 to 1. Drag h for a rainbow, then pick C here.',
+    },
+  };
+function colorHintTab() {
+  try {
+    return sessionStorage.getItem(COLOR_HINT_KEY) === 'hsv' ? 'hsv' : 'rgb';
+  } catch {
+    return 'rgb';
+  }
+}
+function setColorHintTab(tab) {
+  try {
+    sessionStorage.setItem(COLOR_HINT_KEY, tab);
+  } catch {}
+}
+function colorFromMathHint(collapsed) {
+  const more = document.createElement('details');
+  more.className = 'col-more';
+  more.open = !collapsed;
+  const summary = document.createElement('summary');
+  summary.textContent = collapsed ? 'How?' : 'Color from math';
+  const body = document.createElement('div');
+  body.className = 'col-math';
+  const tabs = document.createElement('div');
+  tabs.className = 'col-segs';
+  tabs.setAttribute('role', 'tablist');
+  tabs.ariaLabel = 'Color formula style';
+  const copy = document.createElement('p');
+  copy.className = 'col-math-copy';
+  const paint = tab => {
+    const t = colorHintCopy[tab];
+    copy.replaceChildren();
+    copy.append(t.before, Object.assign(document.createElement('code'), { textContent: t.code }), t.after);
+    for (const b of tabs.querySelectorAll('button'))
+      b.setAttribute('aria-selected', String(b.dataset.tab === tab));
+  };
+  for (const id of ['rgb', 'hsv']) {
+    const b = document.createElement('button');
+    b.type = 'button';
+    b.dataset.tab = id;
+    b.textContent = id.toUpperCase();
+    b.setAttribute('role', 'tab');
+    b.onclick = () => {
+      setColorHintTab(id);
+      paint(id);
+    };
+    tabs.append(b);
+  }
+  paint(colorHintTab());
+  body.append(tabs, copy);
+  more.append(summary, body);
+  return more;
 }
 /* The color menu: the palette, any color variables (C = hsv(h, 1, 1) colors a row and follows its
    sliders, as in Desmos), or any color at all from the system picker. */
@@ -1311,14 +1435,7 @@ function colorMenu(r, anchor) {
   lab.textContent = 'Custom';
   row.append(custom, lab);
   menu.append(row);
-  if (!vars.length) {
-    const more = document.createElement('details');
-    more.className = 'col-more';
-    more.innerHTML =
-      '<summary>Color from a variable</summary>' +
-      '<p>Add <code>C = hsv(h, 1, 1)</code> with a slider on <code>h</code> for a live rainbow — then choose <code>C</code> above.</p>';
-    menu.append(more);
-  }
+  menu.append(colorFromMathHint(!!vars.length));
   document.body.append(menu);
   const a = anchor.getBoundingClientRect(),
     left = Math.min(innerWidth - menu.offsetWidth - 8, Math.max(8, a.left + a.width / 2 - 18)),

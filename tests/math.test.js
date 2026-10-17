@@ -31,6 +31,7 @@ import { evalGeo, freeNames, geoName, geoShapes, parseGeo, writeGeo } from '../s
 import { boxCells, boxDimension } from '../src/math/boxCount.js';
 import { mqBack, mqInsert, mqNew, mqPrune, mqRight, mqSer, mqType, mqVert } from '../src/editor/structure.js';
 import { NAMES, SPELLINGS, nameMatch } from '../src/math/names.js';
+import { Color, colorSliders } from '../src/math/values.js';
 
 describe('maths editor tidies empty slots', () => {
   const typed = keys => {
@@ -1243,10 +1244,22 @@ describe('points, matrices and the rest of the Desmos language', () => {
   it('makes colours, tones and shuffles', () => {
     expect(calc('rgb(255, 120, 0)').hex).toBe('#ff7800');
     expect(calc('hsv(120, 1, 1)').hex).toBe('#00ff00');
+    expect(String(calc('rgb(255, 24, 0)'))).toBe('rgb(255, 24, 0) · hsv(6°, 100%, 100%)');
+    expect(calc('hsv(400, 2, 2)').hex).toBe(calc('hsv(360, 1, 1)').hex);
     expect(calc('tone(440, 0.5)').freq).toBe(440);
     const s = calc('shuffle([1...10], 3)');
     expect([...s].sort((a, b) => a - b)).toEqual([1, 2, 3, 4, 5, 6, 7, 8, 9, 10]);
     expect(calc('shuffle([1...10], 3)')).toEqual(s);
+  });
+  it('infers slider spans from rgb and hsv channels', () => {
+    const rgb = colorSliders(compileExpr('rgb(255, g, 0)').ast);
+    expect(rgb.get('g')).toEqual([0, 255, 0, 1]);
+    const hsv = colorSliders(compileExpr('hsv(h, s, v)').ast);
+    expect(hsv.get('h')).toEqual([0, 360, 0, 1]);
+    expect(hsv.get('s')).toEqual([0, 1, 1, 0.01]);
+    expect(hsv.get('v')).toEqual([0, 1, 1, 0.01]);
+    expect(colorSliders(compileExpr('a + b').ast).size).toBe(0);
+    expect(new Color(255, 0, 0).hsv()).toEqual([0, 100, 100]);
   });
 });
 

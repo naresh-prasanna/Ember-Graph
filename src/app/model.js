@@ -4,7 +4,7 @@ import { PAL, S, reduceMotion } from './state.js';
 import { constants, coords, emptyCalls, nullObj, own, reserved } from '../math/catalog.js';
 import { complexOp, complexText, imOf, isComplex, reOf } from '../math/complex.js';
 import { DIST_NAMES, Dist } from '../math/distributions.js';
-import { Color, Matrix, Point, Shape, TTest, Tone, show } from '../math/values.js';
+import { Color, Matrix, Point, Shape, TTest, Tone, colorSliders, show } from '../math/values.js';
 import { ddValue } from '../math/doubleDouble.js';
 import { calcFmt, clamp, fmt, toFraction } from '../math/format.js';
 import { FRACTALS, parseFractal } from '../math/fractals.js';
@@ -663,18 +663,26 @@ function rebuildRows({ reset = false } = {}, held = null) {
   const nextVM = nullObj();
   for (const r of S.rows) {
     if (!r.k) continue;
-    const sound = soundSliders(r.k.c?.ast || r.k.bare?.ast);
+    const ast = r.k.c?.ast || r.k.bare?.ast,
+      sound = soundSliders(ast),
+      color = colorSliders(ast);
     for (const n of r.uses) {
       if (reserved(n) || names.has(n) || byName.has(n) || columns.has(n) || n === r.k.param) continue;
-      // A slider that only sets a tone's pitch or volume starts somewhere you can hear, with a range to match.
-      const [lo, hi, start] = (!S.ranges[n] && sound.get(n)) || [];
-      if (!own(S.vars, n) || (start && !(S.vars[n] >= lo && S.vars[n] <= hi))) S.vars[n] = start ?? 1;
-      if (!nextVM[n])
+      // First-created sliders in rgb(...) / hsv(...) get a span that matches the colour channel;
+      // tone(...) keeps hearing / gain. User limits in S.ranges always win; existing sliders keep theirs.
+      const hint = (!S.ranges[n] && !S.VM[n] && color.get(n)) || (!S.ranges[n] && sound.get(n)) || null;
+      const [lo, hi, start, step] = hint || [];
+      if (!own(S.vars, n) || (Number.isFinite(start) && !(S.vars[n] >= lo && S.vars[n] <= hi)))
+        S.vars[n] = Number.isFinite(start) ? start : 1;
+      if (!nextVM[n]) {
+        const span = sliderRange(n, S.vars[n], lo, hi);
+        if (step != null && !S.ranges[n]) span.step = step;
         nextVM[n] = {
           own: r.id,
-          ...sliderRange(n, S.vars[n], lo, hi),
+          ...span,
           direction: S.VM[n]?.direction || 1,
         };
+      }
     }
   }
   for (const r of S.rows) {
@@ -1106,7 +1114,7 @@ function noteName(f) {
 }
 function valueInfo(v) {
   if (v instanceof Matrix) return `${v.m}×${v.n} matrix`;
-  if (v instanceof Color) return 'Color ' + v;
+  if (v instanceof Color) return String(v);
   if (v instanceof TTest) return v.kind;
   if (v instanceof Tone) return toneInfo(v);
   if (v instanceof Dist) return v.describe();

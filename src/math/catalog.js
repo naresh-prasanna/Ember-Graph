@@ -69,11 +69,14 @@ Object.assign(math, {
   },
   // Red, green and blue from 0 to 255.
   rgb: (r, g, b) => ([r, g, b].every(Number.isFinite) ? new Color(r, g, b) : NaN),
-  // Hue in degrees, saturation and value from 0 to 1.
+  // Hue in degrees, saturation and value from 0 to 1. Out-of-range inputs clamp so the colour stays sensible.
   hsv: (h, s, v) => {
     if (![h, s, v].every(Number.isFinite)) return NaN;
+    h = Math.min(360, Math.max(0, h));
+    s = Math.min(1, Math.max(0, s));
+    v = Math.min(1, Math.max(0, v));
     const f = n => {
-      const k = (n + (((h % 360) + 360) % 360) / 60) % 6;
+      const k = (n + h / 60) % 6;
       return 255 * v * (1 - s * Math.max(0, Math.min(k, 4 - k, 1)));
     };
     return new Color(f(5), f(3), f(1));

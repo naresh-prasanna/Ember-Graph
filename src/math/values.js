@@ -46,9 +46,46 @@ export class Color {
   get hex() {
     return '#' + [this.r, this.g, this.b].map(v => v.toString(16).padStart(2, '0')).join('');
   }
-  toString() {
-    return `rgb(${this.r}, ${this.g}, ${this.b})`;
+  // Hue in degrees, saturation and value as 0–100 percentages — for the live readout.
+  hsv() {
+    const r = this.r / 255,
+      g = this.g / 255,
+      b = this.b / 255,
+      max = Math.max(r, g, b),
+      min = Math.min(r, g, b),
+      d = max - min;
+    let h = 0;
+    if (d) {
+      if (max === r) h = ((g - b) / d) % 6;
+      else if (max === g) h = (b - r) / d + 2;
+      else h = (r - g) / d + 4;
+      h *= 60;
+      if (h < 0) h += 360;
+    }
+    return [Math.round(h), Math.round(max ? (d / max) * 100 : 0), Math.round(max * 100)];
   }
+  toString() {
+    const [h, s, v] = this.hsv();
+    return `rgb(${this.r}, ${this.g}, ${this.b}) · hsv(${h}°, ${s}%, ${v}%)`;
+  }
+}
+
+/* Names passed straight into rgb(...) / hsv(...): default slider span when the variable is first created.
+   Map values are [min, max, start, step]. */
+export function colorSliders(ast, out = new Map()) {
+  if (!ast || typeof ast !== 'object') return out;
+  if (ast.k === 'call' && (ast.n === 'rgb' || ast.n === 'hsv')) {
+    const args = ast.a || [];
+    for (let i = 0; i < args.length; i++) {
+      const a = args[i];
+      if (a?.k !== 'name' || out.has(a.n)) continue;
+      if (ast.n === 'rgb') out.set(a.n, [0, 255, 0, 1]);
+      else if (i === 0) out.set(a.n, [0, 360, 0, 1]);
+      else out.set(a.n, [0, 1, 1, 0.01]);
+    }
+  }
+  for (const v of Object.values(ast)) if (v && typeof v === 'object') colorSliders(v, out);
+  return out;
 }
 
 // Something to draw: outlines and filled regions as flat [x0, y0, x1, y1, …] arrays in graph units, plus dots.
