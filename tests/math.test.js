@@ -84,6 +84,31 @@ describe('maths editor tidies empty slots', () => {
     expect(moves([...'prod1↑5 n'])).toBe('prod(n,n,1,5)');
     expect(moves([...'nthroot3→27'])).toBe('nthroot(27,3)');
     expect(moves([...'d/dxx^3'])).toBe('deriv(x^(3),x)');
+    // Typing d/dx in front of an expression already on the row takes that expression as the body.
+    {
+      const st = mqNew('');
+      for (const k of [...'ln(x)']) mqType(st, k);
+      mqPrune(st);
+      st.cur = { blk: st.root, i: 0 };
+      for (const k of [...'d/dx']) {
+        mqType(st, k);
+        mqPrune(st);
+      }
+      expect(mqSer(st.root)).toBe('deriv(ln(x),x)');
+    }
+    // Keypad / suggestion insert in front of an expression pulls it into the body too.
+    {
+      const st = mqNew('');
+      for (const k of [...'sin(x)']) mqType(st, k);
+      mqPrune(st);
+      st.cur = { blk: st.root, i: 0 };
+      mqInsert(st, 'deriv', 0);
+      mqPrune(st);
+      expect(mqSer(st.root)).toBe('deriv(sin(x),x)');
+    }
+    expect(textNotation('d/dx()ln(x)')).toBe('deriv(ln(x),x)');
+    expect(textNotation('d/dx()x^2 + 1')).toBe('deriv(x^2 + 1,x)');
+    expect(textNotation('d/dx()x^2 = 0')).toBe('deriv(x^2,x)= 0');
     expect(moves([...'int∫⌫'])).toBe('');
     expect(moves([...'int∫→x^2'])).toBe('integral(x^(2),x)');
     expect(moves([...'int∫→x sin(x)→+1'])).toBe('integral(xsin(x),x)+1');

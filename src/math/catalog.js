@@ -527,8 +527,15 @@ export function textNotation(s) {
     const rest = s.slice(i);
     const dm = !word(s[i - 1]) && rest.match(/^d\/d([A-Za-zθ])(?![A-Za-z0-9_])/);
     if (dm) {
-      const b = body(s, i + dm[0].length);
-      if (b) {
+      let at = i + dm[0].length;
+      // An empty () left from typing d/dx in front of an expression: d/dx()ln(x) is still d/dx of ln(x).
+      while (s[at] === ' ') at++;
+      if (s[at] === '(' && s[at + 1] === ')') {
+        at += 2;
+        while (s[at] === ' ') at++;
+      }
+      const b = body(s, at);
+      if (b && b[0]) {
         out += `deriv(${textNotation(b[0])},${dm[1]})`;
         i = b[1];
         continue;

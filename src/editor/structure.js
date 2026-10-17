@@ -356,6 +356,27 @@ const mqIdx = n => n.blk.items.indexOf(n),
       i: mqIdx(n),
     };
   };
+// What d/dx applies to when typed in front of an expression already on the row.
+const BODY_STOP = new Set('=<>≤≥≠,'.split(''));
+function takeBody(items) {
+  let depth = 0,
+    i = 0;
+  for (; i < items.length; i++) {
+    const it = items[i];
+    if (typeof it === 'string') {
+      if (it === '(' || it === '[') depth++;
+      else if ((it === ')' || it === ']') && depth) depth--;
+      else if (!depth && BODY_STOP.has(it)) break;
+      else if (!depth && /^\s*(with|for|and|or)\b/.test(it)) break;
+    }
+  }
+  return items.splice(0, i);
+}
+// Empty d/dx in front of ln(x) pulls ln(x) into the body, so the row becomes d/dx(ln(x)).
+function fillDeriv(n, after) {
+  if (n.blocks[1].items.length || !after.length) return;
+  n.blocks[1].items = takeBody(after);
+}
 export function mqLeft(st) {
   const { blk, i } = st.cur;
   if (i > 0) {
@@ -774,10 +795,13 @@ export function mqType(st, ch) {
     fr.blocks[0].items.join('') === 'd'
   ) {
     const n = mkNode('deriv', [[last], []]),
-      c = fr.blk;
-    c.items.splice(mqIdx(fr), 1, n);
+      c = fr.blk,
+      idx = mqIdx(fr),
+      after = c.items.splice(idx + 1);
+    fillDeriv(n, after);
+    c.items.splice(idx, 1, n, ...after);
     mqFix(st.root);
-    mqEnter(st, n, 1, false);
+    mqEnter(st, n, 1, !!n.blocks[1].items.length);
     return;
   }
   if (isL(last)) {
@@ -861,10 +885,12 @@ export function mqInsert(st, name, drop) {
       : name === 'deriv'
         ? mkNode('deriv', [['x'], []])
         : mkTemplate(name);
-  it.splice(j, 0, n);
+  const after = name === 'deriv' ? it.splice(j) : [];
+  if (name === 'deriv') fillDeriv(n, after);
+  it.splice(j, 0, n, ...after);
   mqFix(st.root);
   n.justMade = true;
-  if (name === 'log' || name === 'deriv') mqEnter(st, n, 1, false);
+  if (name === 'log' || name === 'deriv') mqEnter(st, n, 1, name === 'deriv' && !!n.blocks[1].items.length);
   else mqEnter(st, n, 0, isTpl(n));
 }
 // Inside tone( … ) the arguments still to come show faintly: "frequency, gain", then ", gain" after the first.
