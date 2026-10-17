@@ -137,8 +137,8 @@ aside {
 .fr {
   display: none;
   place-items: center;
-  width: 26px;
-  height: 26px;
+  width: 22px;
+  height: 22px;
   padding: 0;
   border-radius: 50%;
   border-color: rgb(var(--fg-rgb) / 0.22);
@@ -148,8 +148,8 @@ aside {
   font-size: 1em;
 }
 .fr svg {
-  width: 17px;
-  height: 17px;
+  width: 14px;
+  height: 14px;
   fill: none;
   stroke: currentColor;
   stroke-width: 1.6;
@@ -167,9 +167,7 @@ aside {
 .fr:active {
   transform: scale(0.94);
 }
-.row.has-frac .dot {
-  display: none;
-}
+/* Keep the colour radio when a fraction answer is available; put the toggle under it. */
 .row.has-frac .fr {
   display: grid;
 }
@@ -1269,18 +1267,15 @@ body.present .steps-sheet {
     0 0 0 3.5px var(--ink-2);
 }
 .col-custom::after {
-  content: '+';
+  content: '';
   position: absolute;
   inset: 5px;
-  display: flex;
-  align-items: center;
-  justify-content: center;
   border-radius: 50%;
-  background: var(--raise);
-  color: var(--ink-2);
-  font: 600 15px/1 var(--sans);
-  /* Plus glyph sits high in the em box; nudge to optical centre. */
-  padding: 1px 0 0;
+  /* Drawn plus: font glyphs sit off-centre in this ring. */
+  background:
+    linear-gradient(var(--ink-2), var(--ink-2)) center / 9px 1.5px no-repeat,
+    linear-gradient(var(--ink-2), var(--ink-2)) center / 1.5px 9px no-repeat,
+    var(--raise);
   pointer-events: none;
 }
 .col-custom input {
