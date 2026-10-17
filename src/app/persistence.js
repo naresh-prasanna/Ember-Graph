@@ -62,9 +62,9 @@ export function validateState(o) {
       x.text.length > (isTableText(x.text) || isGeoText(x.text) ? 200000 : 2000)
     )
       throw Error('Invalid expression');
-    if (x.col !== undefined && !/^#[0-9a-f]{6}$/i.test(x.col)) throw Error('Invalid curve colour');
+    if (x.col !== undefined && !/^#[0-9a-f]{6}$/i.test(x.col)) throw Error('Invalid curve color');
     if (x.off !== undefined && typeof x.off !== 'boolean') throw Error('Invalid visibility flag');
-    if (x.colVar !== undefined && !/^[a-zA-Z_]\w*$/.test(x.colVar)) throw Error('Invalid colour variable');
+    if (x.colVar !== undefined && !/^[a-zA-Z_]\w*$/.test(x.colVar)) throw Error('Invalid color variable');
     return {
       text: x.text,
       col: x.col,

@@ -80,8 +80,8 @@ export const THEMES = {
     shade: { bg: [5, 8, 6], ink: [200, 240, 205], em: [93, 255, 122] },
   }),
   safe: canvas({
-    name: 'Colour-blind safe',
-    note: 'The Okabe–Ito palette: curves stay distinct with any colour vision.',
+    name: 'Color-blind safe',
+    note: 'The Okabe–Ito palette: curves stay distinct with any color vision.',
     bg: '#08090a',
     sky: ['rgba(80,60,20,.06)', 'rgba(27,28,29,.03)', 'rgba(0,0,0,.3)'],
     line: '213,210,200',

@@ -1152,7 +1152,7 @@ function mountRow(r) {
   el.className = 'row' + (r.off ? ' off' : '');
   el.style.setProperty('--curve', tone(r.col));
   el.innerHTML =
-    '<div class="gut"><span class="idx"></span><button class="dot" aria-label="Show or hide"></button><button class="fr" aria-pressed="false"><svg viewBox="0 0 24 24" aria-hidden="true"><rect x="9" y="4.5" width="6" height="5" rx="1.2" /><path d="M6.5 12h11" /><rect x="9" y="14.5" width="6" height="5" rx="1.2" /></svg></button></div><div class="col"><div class="row-label"></div><div class="entry"><div class="equation-display" aria-hidden="true"></div><input type="text" spellcheck="false" autocomplete="off" autocapitalize="off" placeholder="Type an equation"></div><div class="err" role="status"></div><div class="sls"></div></div><button class="x" aria-label="Delete"><svg class="icon" viewBox="0 0 24 24" aria-hidden="true"><path d="m7 7 10 10M17 7 7 17" /></svg></button>';
+    '<div class="gut"><span class="idx"></span><button class="dot" aria-label="Show or hide. Right-click to change color" title="Right-click to change color"></button><button class="fr" aria-pressed="false"><svg viewBox="0 0 24 24" aria-hidden="true"><rect x="9" y="4.5" width="6" height="5" rx="1.2" /><path d="M6.5 12h11" /><rect x="9" y="14.5" width="6" height="5" rx="1.2" /></svg></button></div><div class="col"><div class="row-label"></div><div class="entry"><div class="equation-display" aria-hidden="true"></div><input type="text" spellcheck="false" autocomplete="off" autocapitalize="off" placeholder="Type an equation"></div><div class="err" role="status"></div><div class="sls"></div></div><button class="x" aria-label="Delete"><svg class="icon" viewBox="0 0 24 24" aria-hidden="true"><path d="m7 7 10 10M17 7 7 17" /></svg></button>';
   el.querySelector('.idx').textContent = i + 1;
   const dot = el.querySelector('.dot');
   dot.setAttribute('aria-pressed', String(!r.off));
@@ -1220,8 +1220,8 @@ function mountRow(r) {
   else $('#rows').append(el);
   bindCompletions(r);
 }
-/* The colour menu: the palette, any colour variables (C = rgb(255, 120, 0) colours a row and follows its
-   sliders, as in Desmos), or any colour at all from the system picker. */
+/* The color menu: the palette, any color variables (C = rgb(255, 120, 0) colors a row and follows its
+   sliders, as in Desmos), or any color at all from the system picker. */
 function colorMenu(r, anchor) {
   document.querySelector('.col-menu')?.remove();
   const menu = document.createElement('div'),
@@ -1233,10 +1233,16 @@ function colorMenu(r, anchor) {
       kick();
       saveSoon();
     },
-    close = () => {
+    done = () => {
       menu.remove();
       removeEventListener('pointerdown', outside, true);
       removeEventListener('keydown', esc, true);
+    },
+    close = () => {
+      if (menu.classList.contains('closing')) return;
+      if (reduceMotion) return done();
+      menu.classList.add('closing');
+      menu.addEventListener('animationend', done, { once: true });
     },
     outside = e => !menu.contains(e.target) && close(),
     esc = e => e.key === 'Escape' && close(),
@@ -1265,9 +1271,9 @@ function colorMenu(r, anchor) {
     };
   menu.className = 'col-menu';
   menu.setAttribute('role', 'dialog');
-  menu.ariaLabel = 'Curve colour';
+  menu.ariaLabel = 'Curve color';
   section(
-    'Colour',
+    'Color',
     PAL.map(c =>
       swatch(tone(c), tone(c), !r.colVar && c.toLowerCase() === r.col.toLowerCase(), () => set(c)),
     ),
@@ -1290,7 +1296,7 @@ function colorMenu(r, anchor) {
   menu.append(custom);
   const tip = document.createElement('p');
   tip.className = 'col-tip';
-  tip.textContent = 'Define C = rgb(255, 120, 0) or hsv(30, 1, 1) to colour by a variable.';
+  tip.textContent = 'Add C = rgb(255, 120, 0) as an expression, then pick C here.';
   if (!colorVariables().length) menu.append(tip);
   document.body.append(menu);
   const a = anchor.getBoundingClientRect();

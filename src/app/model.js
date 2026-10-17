@@ -1106,7 +1106,7 @@ function noteName(f) {
 }
 function valueInfo(v) {
   if (v instanceof Matrix) return `${v.m}×${v.n} matrix`;
-  if (v instanceof Color) return 'Colour ' + v;
+  if (v instanceof Color) return 'Color ' + v;
   if (v instanceof TTest) return v.kind;
   if (v instanceof Tone) return toneInfo(v);
   if (v instanceof Dist) return v.describe();

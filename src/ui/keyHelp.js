@@ -184,13 +184,13 @@ export const FN_HELP = {
   midpoint: ['midpoint(A, B)', 'The point halfway between two points.', 'midpoint((0, 0), (4, 2)).x', '2'],
   rgb: [
     'rgb(r, g, b)',
-    'A colour from red, green and blue, each 0 to 255. Name it, then right-click a curve’s dot to use it.',
+    'A color from red, green and blue, each 0 to 255. Name it, then right-click a curve’s dot to use it.',
     'rgb(255, 120, 60)',
     null,
   ],
   hsv: [
     'hsv(h, s, v)',
-    'A colour from hue in degrees, saturation and value from 0 to 1. A slider on h sweeps the rainbow.',
+    'A color from hue in degrees, saturation and value from 0 to 1. A slider on h sweeps the rainbow.',
     'hsv(30, 1, 1)',
     null,
   ],
