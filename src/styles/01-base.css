@@ -442,7 +442,7 @@ aside {
 }
 .sl-lim-name {
   white-space: nowrap;
-  word-spacing: 0.28em;
+  word-spacing: 0.05em;
   font: 400 16px/1.3 var(--math);
 }
 .sl-lim-name i {

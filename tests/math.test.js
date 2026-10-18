@@ -803,15 +803,15 @@ describe('math italic correction and delimiter ghosts', () => {
     expect(base).toMatch(/--math-italic:\s*Cambria/);
     expect(base).toMatch(/--math-italic-corr:\s*0\.28em/);
     expect(editor).toMatch(/\.mq \.v\s*\{[^}]*font-family:\s*var\(--math-italic\)/s);
-    // Correction only on the last letter of a run, never before the caret.
-    expect(editor).toMatch(
-      /\.mq \.v:not\(:has\(\+ \.v\)\):not\(:has\(\+ \.cur\)\)\s*\{[^}]*padding-inline-end:\s*var\(--math-italic-corr\)/s,
-    );
+    // Correction only into delimiters/scripts — not before = or digits.
+    expect(editor).toMatch(/\.mq \.v \+ \.nd,\s*\n\.mq \.v \+ \.pb[\s\S]*margin-inline-start:\s*var\(--math-italic-corr\)/);
+    expect(editor).not.toMatch(/\.mq \.v:not\(:has/);
     expect(editor).toMatch(/\.mq \.cur\s*\{[^}]*width:\s*1\.6px/s);
     expect(editor).toMatch(/\.mq \.v \+ \.cur\s*\{[^}]*margin-left:\s*0\.06em/s);
-    expect(math).toMatch(/i:not\(:has\(\+ i\)\)[\s\S]*padding-inline-end:\s*var\(--math-italic-corr\)/);
+    expect(math).toMatch(/i:has\(\+ :is\(sup, sub\)\)|i:has\(\+ sup\)/);
     expect(base).toMatch(/\.sl-lim input\s*\{[^}]*font-variant-numeric:\s*tabular-nums/s);
     expect(base).toMatch(/\.sl-lim-name\s*\{[^}]*var\(--math\)/s);
+    expect(base).toMatch(/\.sl-lim-name\s*\{[^}]*word-spacing:\s*0\.05em/s);
     const typeset = readFileSync(join(root, 'src/styles/06-typesetting.css'), 'utf8');
     // Fixed-size tip mask layer joins the stem to the vinculum without stroke clipping.
     expect(typeset).toMatch(/--rs-tip:/);

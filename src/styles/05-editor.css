@@ -23,22 +23,17 @@
   font-family: var(--math-italic);
   font-style: italic;
 }
-/* Each letter is its own .v — only the last of a run needs italic correction, and
-   not before the caret (that stacked with .v+.cur margin into a full-letter hole). */
-.mq .v:not(:has(+ .v)):not(:has(+ .cur)) {
-  padding-inline-end: var(--math-italic-corr);
-}
 /* Shared by the editor and the typeset preview, so a row does not shift when clicked into. */
 .op {
   padding: 0 0.2em;
 }
-/* Extra advance into a following delimiter or script (f(x), (f), f²). */
+/* Italic correction only into delimiters/scripts — not before =, digits, or · (that made gello = 10 look blown out). */
 .mq .v + .nd,
 .mq .v + .pb,
 .mq .nd > .blk + .pb,
 .mq .v + sup,
 .mq .v + sub {
-  margin-inline-start: 0.08em;
+  margin-inline-start: var(--math-italic-corr);
 }
 .mq .pb {
   font-size: 1.12em;
