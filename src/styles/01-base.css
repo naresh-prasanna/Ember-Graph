@@ -21,14 +21,15 @@
   --on-em: #1c0e05;
   --mono: ui-monospace, 'Cascadia Code', Consolas, monospace;
   --sans: Inter, 'Segoe UI', Arial, sans-serif;
-  --math: 'Cambria Math', 'STIX Two Math', Georgia, serif;
-  /* Text italics for variables: Cambria Math has no italic Latin face, so CSS italic
-     synthesizes or falls back and loses italic correction. Cambria/Constantia/Georgia are
-     already system faces in the math stack — not new fonts. */
-  --math-italic: Cambria, Constantia, Georgia, 'Times New Roman', serif;
-  /* Advance past overhanging italic hooks (f, j, y, g, ψ) into ), ], scripts.
-     Applied only at the end of a letter run, and never before the caret. */
+  /* Desmos's formula editor uses Times New Roman (HTML, not LaTeX). Prefer that, then
+     math-capable fallbacks for operators/Greek that Times lacks. */
+  --math: 'Times New Roman', 'STIX Two Math', 'Cambria Math', Georgia, serif;
+  /* True italic faces for variables — same Times-first stack as Desmos. */
+  --math-italic: 'Times New Roman', Cambria, Constantia, Georgia, serif;
+  /* Advance past overhanging italic hooks (f, j, y, g, ψ) into ), ].
+     Scripts use a tighter corr so e^… does not float away from the base. */
   --math-italic-corr: 0.28em;
+  --math-script-corr: 0.05em;
   color-scheme: dark;
 }
 * {
@@ -309,9 +310,8 @@ aside {
   letter-spacing: 0.1px;
 }
 .equation-display sup {
-  font-size: 0.62em;
-  align-self: flex-start;
-  margin-top: 2px;
+  font-size: 0.68em;
+  vertical-align: 0.45em;
 }
 .col input[type='text'] {
   width: 100%;

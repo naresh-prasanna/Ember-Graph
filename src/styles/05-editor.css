@@ -27,12 +27,14 @@
 .op {
   padding: 0 0.2em;
 }
-/* Italic correction only into delimiters/scripts — not before =, digits, or · (that made gello = 10 look blown out). */
+/* Italic correction into delimiters — not before =, digits, or · (that made gello = 10 look blown out). */
 .mq .v + .nd,
-.mq .v + .pb,
-.mq .v + sup,
-.mq .v + sub {
+.mq .v + .pb {
   margin-inline-start: var(--math-italic-corr);
+}
+/* Scripts sit close to the base (Desmos e^{sin(x)}), not a full italic-corr away. */
+.mq .v + :is(sup, sub) {
+  margin-inline-start: var(--math-script-corr);
 }
 /* Closing ) after italic content — only when the letter is last (no caret between). Otherwise
    .v+.cur already clears the overhang, and both together blew a gap before ) like sin(x|). */
@@ -55,6 +57,14 @@
   background: none;
   min-width: 0.12em;
   min-height: 0.85em;
+  border-radius: 0;
+}
+/* Power / index empty slots are the <sup>/<sub> itself (.blk.e), not a child span.
+   Caret only — never a filled grey "input field" (Desmos). */
+.mq :is(sup, sub).blk.e {
+  background: none;
+  min-width: 0.18em;
+  min-height: 0.7em;
   border-radius: 0;
 }
 .mq .gh {
@@ -89,14 +99,14 @@
   min-width: 0.5em;
 }
 .mq sup {
-  font-size: 0.62em;
-  vertical-align: super;
-  line-height: 0;
+  font-size: 0.68em;
+  vertical-align: 0.45em;
+  line-height: 1;
 }
 .mq sub {
-  font-size: 0.65em;
-  vertical-align: -0.28em;
-  line-height: 0;
+  font-size: 0.68em;
+  vertical-align: -0.22em;
+  line-height: 1;
 }
 .mq .cur {
   display: inline-block;

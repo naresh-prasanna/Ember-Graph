@@ -813,12 +813,14 @@ describe('math italic correction and delimiter ghosts', () => {
       editor = readFileSync(join(root, 'src/styles/05-editor.css'), 'utf8'),
       math = readFileSync(join(root, 'src/styles/04-math.css'), 'utf8'),
       base = readFileSync(join(root, 'src/styles/01-base.css'), 'utf8');
-    expect(base).toMatch(/--math:\s*'Cambria Math'/);
-    expect(base).toMatch(/--math-italic:\s*Cambria/);
+    expect(base).toMatch(/--math:\s*'Times New Roman'/);
+    expect(base).toMatch(/--math-italic:\s*'Times New Roman'/);
     expect(base).toMatch(/--math-italic-corr:\s*0\.28em/);
+    expect(base).toMatch(/--math-script-corr:/);
     expect(editor).toMatch(/\.mq \.v\s*\{[^}]*font-family:\s*var\(--math-italic\)/s);
-    // Correction only into delimiters/scripts — not before = or digits, and not before every ).
+    // Correction into delimiters; scripts use the tighter --math-script-corr.
     expect(editor).toMatch(/\.mq \.v \+ \.nd,\s*\n\.mq \.v \+ \.pb[\s\S]*margin-inline-start:\s*var\(--math-italic-corr\)/);
+    expect(editor).toMatch(/\.mq \.v \+ :is\(sup, sub\)/);
     expect(editor).not.toMatch(/\.mq \.nd > \.blk \+ \.pb\s*[,{]/);
     expect(editor).toMatch(/\.mq \.nd > \.blk:has\(> \.v:last-child\) \+ \.pb/);
     expect(editor).not.toMatch(/\.v \+ \.cur:last-child/);
@@ -873,6 +875,18 @@ describe('math italic correction and delimiter ghosts', () => {
     // tone(frequency, gain) still hints the remaining names.
     expect(paramHint(['t', 'o', 'n', 'e'], 4, [])).toMatch(/frequency/);
     expect(paramHint(['t', 'o', 'n', 'e'], 4, ['4', '4', '0'])).toMatch(/gain/);
+  });
+
+  it('keeps empty power slots caret-only and uses a Desmos-like Times math stack', () => {
+    const root = join(dirname(fileURLToPath(import.meta.url)), '..'),
+      base = readFileSync(join(root, 'src/styles/01-base.css'), 'utf8'),
+      editor = readFileSync(join(root, 'src/styles/05-editor.css'), 'utf8');
+    // Desmos formula editor is Times New Roman (inspected CSS), not Cambria-first.
+    expect(base).toMatch(/--math:\s*'Times New Roman'/);
+    expect(base).toMatch(/--math-script-corr:/);
+    // Empty ^ slot is <sup class="blk e"> — must not paint grey field chrome.
+    expect(editor).toMatch(/\.mq :is\(sup, sub\)\.blk\.e\s*\{[^}]*background:\s*none/s);
+    expect(editor).toMatch(/\.mq \.v \+ :is\(sup, sub\)\s*\{[^}]*math-script-corr/s);
   });
 
   it('opens f( with a ghost closer only, and clears italic into the following group', () => {

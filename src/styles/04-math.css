@@ -57,14 +57,14 @@
   font-family: var(--math-italic);
   font-style: italic;
 }
-/* Only into superscripts/subscripts — padding before every following sibling blew out name = 10. */
+/* Scripts hug the base — full italic-corr here floated e^{…} away from e (unlike Desmos). */
 .equation-display i:has(+ sup),
 .equation-display i:has(+ sub),
 .err.answer i:has(+ :is(sup, sub)),
 .step-work i:has(+ :is(sup, sub)),
 .ss-title i:has(+ :is(sup, sub)),
 .mi i:has(+ :is(sup, sub)) {
-  padding-inline-end: var(--math-italic-corr);
+  padding-inline-end: var(--math-script-corr);
 }
 /* Prose errors that embed a formula example keep math glyphs on the math stack. */
 .err .mi {
@@ -75,16 +75,16 @@
 }
 .equation-display sup,
 .equation-display sub {
-  font-size: 0.62em;
-  line-height: 0;
+  font-size: 0.68em;
+  line-height: 1;
   margin: 0;
   align-self: auto;
 }
 .equation-display sup {
-  vertical-align: super;
+  vertical-align: 0.45em;
 }
 .equation-display sub {
-  vertical-align: -0.28em;
+  vertical-align: -0.22em;
 }
 .sl > span {
   display: inline-block;

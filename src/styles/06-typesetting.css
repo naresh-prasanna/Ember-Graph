@@ -130,9 +130,10 @@
 .frac sup {
   line-height: 0;
 }
-.equation-display sup,
-.mq sup {
-  margin-left: 0.1em;
+/* Script offset comes from --math-script-corr on the preceding italic, not a second margin. */
+.equation-display :is(sup, sub),
+.mq :is(sup, sub) {
+  margin-left: 0;
 }
 .mq .frac > .blk {
   line-height: 1.2;
