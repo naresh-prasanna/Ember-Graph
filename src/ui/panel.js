@@ -127,9 +127,9 @@ export function showError(r) {
     r.errEl.classList.toggle('list-open', !r.err && !!r.listOpen && r.listFull?.short === r.info);
     r.errEl.style.color = (r.err && !step) || answer || formula || series || solved ? '' : 'var(--dim)';
     r.errEl.classList.toggle('answer', answer || !!formula || !!series || !!solved);
-    // Full-precision value behind a rounded numeric readout; clear when there isn't one
-    // so a stale tip (e.g. "1" from a previous answer) can't linger on "= —" or an error.
-    if (answer && r.infoExact) setTip(r.errEl, r.infoExact);
+    // Full-precision tip only when it adds digits beyond the on-screen readout (skip tip "1" for "= 1").
+    const shown = (r.info || '').replace(/^=\s*/, '').replace(/,/g, '');
+    if (answer && r.infoExact && r.infoExact !== shown) setTip(r.errEl, r.infoExact);
     else setTip(r.errEl, '');
     syncRowWarn(r, !!(r.err && !step));
   }

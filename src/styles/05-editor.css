@@ -34,10 +34,9 @@
 .mq .v + sub {
   margin-inline-start: var(--math-italic-corr);
 }
-/* Closing ) after italic content inside a group (caret may sit after the letter). Not every closer —
-   that padded cos(π) and made brackets feel like spaced-out fields. */
-.mq .nd > .blk:has(> .v:last-child) + .pb,
-.mq .nd > .blk:has(> .v + .cur:last-child) + .pb {
+/* Closing ) after italic content — only when the letter is last (no caret between). Otherwise
+   .v+.cur already clears the overhang, and both together blew a gap before ) like sin(x|). */
+.mq .nd > .blk:has(> .v:last-child) + .pb {
   margin-inline-start: var(--math-italic-corr);
 }
 .mq .pb {

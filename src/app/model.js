@@ -817,11 +817,12 @@ function rebuildRows({ reset = false } = {}, held = null) {
       r.info = r.heldMsg;
     } else if (drawable(r)) r.good = r.text;
   // A curve that stops being drawn bursts into embers rather than blinking out: its expression broke, emptied,
-  // became a plain value (2x → 2), or its row was deleted. Loading a preset replaces every row at once, so
-  // only a single deleted row counts; hiding a curve is not a break.
-  const oneDeleted = S.rows.length === lastRows.length - 1;
+  // became a plain value (2x → 2), or its row was deleted. Loading a preset uses reset so drawn is empty;
+  // count vanished rows by identity (not length — deleting the only expr replaces it with a blank).
+  const gone = drawn.filter(([r]) => !S.rows.includes(r)),
+    oneGone = gone.length === 1;
   for (const [r, g, shown] of drawn)
-    if (S.rows.includes(r) ? !r.off && !drawable(r) : oneDeleted) shatter(g, r.col, shown);
+    if (S.rows.includes(r) ? !r.off && !drawable(r) : oneGone) shatter(g, r.col, shown);
   lastRows = [...S.rows];
   for (const r of S.rows) {
     if (r.assumed && !r.err && !r.info) r.info = r.hint || 'Unfinished: showing the closest complete graph';

@@ -94,48 +94,80 @@ export function makeEditor(r) {
   /* Puts the cursor at the screen point x, y. A click on the typeset preview lands here too, once the
      editor has taken its place, so the cursor goes where the click was rather than where it last was. */
   const placeAt = (x, y) => {
-    if (document.activeElement !== el) el.focus();
     st.all = false;
-    let t = document.elementFromPoint(x, y),
-      p = null;
-    while (t && t !== el) {
-      if (t._p || t._blk) {
-        p = t;
-        break;
+    const apply = () => {
+      let t = document.elementFromPoint(x, y),
+        p = null;
+      while (t && t !== el) {
+        if (t._p || t._blk) {
+          p = t;
+          break;
+        }
+        t = t.parentNode;
       }
-      t = t.parentNode;
-    }
-    if (t !== el) p = null;
-    if (p && p._p) {
-      const b = p.getBoundingClientRect();
-      st.cur = {
-        blk: p._p[0],
-        i: p._p[1] + (x > b.left + b.width / 2 ? 1 : 0),
-      };
-    } else if (p)
-      st.cur = {
-        blk: p._blk,
-        i: p._blk.items.length,
-      };
-    else {
-      // Beside the maths rather than on it: the nearest gap on the nearest line, as in a text box.
-      st.cur = { blk: st.root, i: st.root.items.length };
-      let best = Infinity;
-      for (const e of el.firstChild?.children || []) {
-        if (!e._p || e._p[0] !== st.root) continue;
-        const b = e.getBoundingClientRect(),
-          dy = Math.max(b.top - y, 0, y - b.bottom) * 1000;
-        [
-          [b.left, e._p[1]],
-          [b.right, e._p[1] + 1],
-        ].forEach(([edge, i]) => {
-          const d = dy + Math.abs(edge - x);
-          if (d < best) [best, st.cur.i] = [d, i];
-        });
+      if (!el.contains(t) && t !== el) p = null;
+      if (p && p._p) {
+        const b = p.getBoundingClientRect(),
+          node = p._p[0].items[p._p[1]];
+        // Click on a (…)/|…| group: land inside it, not before/after the whole call.
+        if (node && typeof node === 'object' && ['paren', 'abs'].includes(node.t) && node.blocks?.[0]) {
+          const inner = node.blocks[0],
+            closer = [...p.children].reverse().find(c => c.classList?.contains('pb')),
+            cr = closer?.getBoundingClientRect();
+          if (cr && x > (cr.left + cr.right) / 2)
+            st.cur = { blk: p._p[0], i: p._p[1] + 1 };
+          else {
+            st.cur = { blk: inner, i: inner.items.length };
+            let best = Infinity;
+            for (const e of p.querySelector('.blk')?.children || []) {
+              if (!e._p || e._p[0] !== inner) continue;
+              const r = e.getBoundingClientRect();
+              [
+                [r.left, e._p[1]],
+                [r.right, e._p[1] + 1],
+              ].forEach(([edge, i]) => {
+                const d = Math.abs(edge - x);
+                if (d < best) [best, st.cur.i] = [d, i];
+              });
+            }
+            if (!inner.items.length) st.cur.i = 0;
+          }
+        } else
+          st.cur = {
+            blk: p._p[0],
+            i: p._p[1] + (x > b.left + b.width / 2 ? 1 : 0),
+          };
+      } else if (p)
+        st.cur = {
+          blk: p._blk,
+          i: p._blk.items.length,
+        };
+      else {
+        // Beside the maths rather than on it: the nearest gap on the nearest line, as in a text box.
+        st.cur = { blk: st.root, i: st.root.items.length };
+        let best = Infinity;
+        for (const e of el.firstChild?.children || []) {
+          if (!e._p || e._p[0] !== st.root) continue;
+          const b = e.getBoundingClientRect(),
+            dy = Math.max(b.top - y, 0, y - b.bottom) * 1000;
+          [
+            [b.left, e._p[1]],
+            [b.right, e._p[1] + 1],
+          ].forEach(([edge, i]) => {
+            const d = dy + Math.abs(edge - x);
+            if (d < best) [best, st.cur.i] = [d, i];
+          });
+        }
       }
-    }
-    closeCompletions();
-    settle();
+      closeCompletions();
+      settle();
+    };
+    // Focus swaps the typeset preview for the editor; wait a frame so hit-testing sees mq nodes
+    // (otherwise the caret lands outside sin(…) even when the click was on the argument).
+    if (document.activeElement !== el) {
+      el.focus();
+      requestAnimationFrame(apply);
+    } else apply();
   };
   el.onmousedown = e => {
     e.preventDefault();

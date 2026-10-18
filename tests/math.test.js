@@ -821,6 +821,7 @@ describe('math italic correction and delimiter ghosts', () => {
     expect(editor).toMatch(/\.mq \.v \+ \.nd,\s*\n\.mq \.v \+ \.pb[\s\S]*margin-inline-start:\s*var\(--math-italic-corr\)/);
     expect(editor).not.toMatch(/\.mq \.nd > \.blk \+ \.pb\s*[,{]/);
     expect(editor).toMatch(/\.mq \.nd > \.blk:has\(> \.v:last-child\) \+ \.pb/);
+    expect(editor).not.toMatch(/\.v \+ \.cur:last-child/);
     expect(editor).toMatch(/\.mq \.nd > \.blk\.e\s*\{[^}]*background:\s*none/s);
     expect(editor).not.toMatch(/\.mq \.v:not\(:has/);
     expect(editor).toMatch(/\.mq \.cur\s*\{[^}]*width:\s*1\.6px/s);
@@ -837,6 +838,15 @@ describe('math italic correction and delimiter ghosts', () => {
     expect(typeset).toMatch(/var\(--rs-tip\)\s+no-repeat\s+100%\s+0\s*\/\s*5px\s+3px/);
     expect(typeset).toMatch(/\.rad > \.radc\s*\{[^}]*margin-left:\s*-2px/s);
   });
+  it('shatters a deleted curve by row identity, not list length', () => {
+    const model = readFileSync(join(dirname(fileURLToPath(import.meta.url)), '../src/app/model.js'), 'utf8');
+    expect(model).toMatch(/gone\.length === 1/);
+    expect(model).not.toMatch(/oneDeleted = S\.rows\.length === lastRows\.length - 1/);
+    const ed = readFileSync(join(dirname(fileURLToPath(import.meta.url)), '../src/editor/mathEditor.js'), 'utf8');
+    expect(ed).toMatch(/requestAnimationFrame\(apply\)/);
+    expect(ed).toMatch(/\['paren', 'abs'\]/);
+  });
+
   it('closes the keypad with an out animation and warns errors Desmos-style', () => {
     const root = join(dirname(fileURLToPath(import.meta.url)), '..'),
       keypad = readFileSync(join(root, 'src/styles/09-keypad.css'), 'utf8'),
