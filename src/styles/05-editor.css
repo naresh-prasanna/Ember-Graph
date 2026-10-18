@@ -23,9 +23,9 @@
   font-family: var(--math-italic);
   font-style: italic;
 }
-/* Each letter is its own .v — only the last of a run needs italic correction, or
-   names like velocity pick up a 0.5em hole between every letter. */
-.mq .v:not(:has(+ .v)) {
+/* Each letter is its own .v — only the last of a run needs italic correction, and
+   not before the caret (that stacked with .v+.cur margin into a full-letter hole). */
+.mq .v:not(:has(+ .v)):not(:has(+ .cur)) {
   padding-inline-end: var(--math-italic-corr);
 }
 /* Shared by the editor and the typeset preview, so a row does not shift when clicked into. */
@@ -103,10 +103,10 @@
   vertical-align: text-bottom;
   animation: mqblink 1s steps(1) infinite;
 }
-/* Extra clearance after italic letters so the bar sits past the overhang/pad. */
+/* Small nudge past italic overhang; caret already paints to the right of the insert point. */
 .mq .v + .cur {
-  margin-left: 0.12em;
-  margin-right: calc(-1.6px - 0.12em);
+  margin-left: 0.06em;
+  margin-right: calc(-1.6px - 0.06em);
 }
 /* Ctrl+A selects the whole expression. */
 .mq.all > .blk {

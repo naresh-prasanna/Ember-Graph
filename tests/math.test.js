@@ -801,12 +801,14 @@ describe('math italic correction and delimiter ghosts', () => {
       base = readFileSync(join(root, 'src/styles/01-base.css'), 'utf8');
     expect(base).toMatch(/--math:\s*'Cambria Math'/);
     expect(base).toMatch(/--math-italic:\s*Cambria/);
-    expect(base).toMatch(/--math-italic-corr:\s*0\.5em/);
+    expect(base).toMatch(/--math-italic-corr:\s*0\.28em/);
     expect(editor).toMatch(/\.mq \.v\s*\{[^}]*font-family:\s*var\(--math-italic\)/s);
-    // Correction only on the last letter of a run — not between letters of a name.
-    expect(editor).toMatch(/\.mq \.v:not\(:has\(\+ \.v\)\)\s*\{[^}]*padding-inline-end:\s*var\(--math-italic-corr\)/s);
+    // Correction only on the last letter of a run, never before the caret.
+    expect(editor).toMatch(
+      /\.mq \.v:not\(:has\(\+ \.v\)\):not\(:has\(\+ \.cur\)\)\s*\{[^}]*padding-inline-end:\s*var\(--math-italic-corr\)/s,
+    );
     expect(editor).toMatch(/\.mq \.cur\s*\{[^}]*width:\s*1\.6px/s);
-    expect(editor).toMatch(/\.mq \.v \+ \.cur\s*\{[^}]*margin-left:\s*0\.12em/s);
+    expect(editor).toMatch(/\.mq \.v \+ \.cur\s*\{[^}]*margin-left:\s*0\.06em/s);
     expect(math).toMatch(/i:not\(:has\(\+ i\)\)[\s\S]*padding-inline-end:\s*var\(--math-italic-corr\)/);
     expect(base).toMatch(/\.sl-lim input\s*\{[^}]*font-variant-numeric:\s*tabular-nums/s);
     expect(base).toMatch(/\.sl-lim-name\s*\{[^}]*var\(--math\)/s);

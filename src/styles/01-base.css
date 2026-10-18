@@ -26,9 +26,9 @@
      synthesizes or falls back and loses italic correction. Cambria/Constantia/Georgia are
      already system faces in the math stack — not new fonts. */
   --math-italic: Cambria, Constantia, Georgia, 'Times New Roman', serif;
-  /* Advance past overhanging italic hooks (f, j, y, g, ψ) into ), ], scripts, caret.
-     Closing ) sits tighter against the hook than (; 0.42em was still tight in the display. */
-  --math-italic-corr: 0.5em;
+  /* Advance past overhanging italic hooks (f, j, y, g, ψ) into ), ], scripts.
+     Applied only at the end of a letter run, and never before the caret. */
+  --math-italic-corr: 0.28em;
   color-scheme: dark;
 }
 * {
