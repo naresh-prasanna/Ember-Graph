@@ -56,7 +56,15 @@
 .sl-lim-name i {
   font-family: var(--math-italic);
   font-style: italic;
-  /* Same italic correction as .mq .v — display/results use <i>, not .v. */
+}
+/* Display wraps a whole name in one <i>; only pad when the next sibling is not another <i>. */
+.equation-display i:not(:has(+ i)),
+.err.answer i:not(:has(+ i)),
+.err .mi i:not(:has(+ i)),
+.step-work i:not(:has(+ i)),
+.ss-title i:not(:has(+ i)),
+.mi i:not(:has(+ i)),
+.sl-lim-name i:not(:has(+ i)) {
   padding-inline-end: var(--math-italic-corr);
 }
 /* Prose errors that embed a formula example keep math glyphs on the math stack. */

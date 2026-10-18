@@ -22,7 +22,10 @@
 .mq .v {
   font-family: var(--math-italic);
   font-style: italic;
-  /* Italic correction: text italic faces still overhang; pad so f(, (f), f² stay clear. */
+}
+/* Each letter is its own .v — only the last of a run needs italic correction, or
+   names like velocity pick up a 0.5em hole between every letter. */
+.mq .v:not(:has(+ .v)) {
   padding-inline-end: var(--math-italic-corr);
 }
 /* Shared by the editor and the typeset preview, so a row does not shift when clicked into. */
