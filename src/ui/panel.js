@@ -141,6 +141,7 @@ function syncRowWarn(r, on) {
   if (!row || !warn) return;
   row.classList.toggle('has-err', on);
   warn.hidden = !on;
+  r.inp?.setAttribute('aria-invalid', on ? 'true' : 'false');
   if (on) {
     setTip(warn, r.err);
     warn.setAttribute('aria-label', r.err);
