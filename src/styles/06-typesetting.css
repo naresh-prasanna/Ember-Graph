@@ -15,7 +15,7 @@
   /* Hook at the foot; stem stretches with the radicand. Tip is a fixed-size mask layer
      (not a stroked endpoint) so it is not half-clipped at y=0 and always meets the vinculum. */
   --rs-hook: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 13 12'%3E%3Cpath d='M0.4 7.2 L2.9 5.6 L6.4 12 L5 12 L2.5 7.4 L0.9 8.1 Z'/%3E%3C/svg%3E");
-  --rs-stem: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 13 100' preserveAspectRatio='none'%3E%3Cpath d='M5.7 100 L11.8 3' stroke='black' stroke-width='1.5' stroke-linecap='square' vector-effect='non-scaling-stroke' fill='none'/%3E%3C/svg%3E");
+  --rs-stem: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 13 100' preserveAspectRatio='none'%3E%3Cpath d='M5.7 100 L12.0 0' stroke='black' stroke-width='1.5' stroke-linecap='square' vector-effect='non-scaling-stroke' fill='none'/%3E%3C/svg%3E");
   --rs-tip: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 5 3'%3E%3Crect width='5' height='3' fill='black'/%3E%3C/svg%3E");
   -webkit-mask:
     var(--rs-hook) no-repeat 0 100%/13px 12px,
@@ -25,6 +25,10 @@
     var(--rs-hook) no-repeat 0 100%/13px 12px,
     var(--rs-tip) no-repeat 100% 0 / 5px 3px,
     var(--rs-stem) no-repeat 0 0/100% 100%;
+  /* Older WebKit composites layered masks with source-in by default; force a union so the
+     stem is not erased when the tip/hook layers are present. */
+  -webkit-mask-composite: source-over;
+  mask-composite: add;
 }
 /* A box not filled in yet, matching the editor's empty slot. */
 .slot {

@@ -91,16 +91,19 @@
 }
 .mq .cur {
   display: inline-block;
-  width: 0;
+  /* Paint the bar to the RIGHT of the insertion point. border-left on width:0 centered
+     with negative X margin bled into the previous glyph — that was the orange line through f. */
+  width: 1.6px;
   height: 1.05em;
-  border-left: 1.6px solid var(--em);
+  margin: 0 -1.6px 0 0;
+  background: var(--em);
   vertical-align: text-bottom;
-  margin: 0 -0.8px;
   animation: mqblink 1s steps(1) infinite;
 }
-/* Caret after an italic letter: do not pull left into the italic-correction pad. */
+/* Extra clearance after italic letters so the bar sits past the overhang/pad. */
 .mq .v + .cur {
-  margin: 0 -0.8px 0 0;
+  margin-left: 0.12em;
+  margin-right: calc(-1.6px - 0.12em);
 }
 /* Ctrl+A selects the whole expression. */
 .mq.all > .blk {
