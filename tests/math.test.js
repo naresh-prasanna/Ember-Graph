@@ -857,9 +857,10 @@ describe('math italic correction and delimiter ghosts', () => {
     expect(keypad).toMatch(/\.keypad\.closing/);
     expect(pad).toMatch(/classList\.add\('closing'\)/);
     expect(list).toMatch(/\.row-warn/);
-    expect(list).toMatch(/\.row\.has-err \.row-warn/);
+    expect(list).toMatch(/\.row\.has-err \.gut\s*\{[^}]*background:\s*var\(--em\)/s);
+    expect(list).toMatch(/\.row-warn\s*\{[^}]*background:\s*none/s);
     expect(panel).toMatch(/syncRowWarn/);
-    expect(panel).toMatch(/class="row-warn"/);
+    expect(panel).toMatch(/fill-rule="evenodd"/);
   });
 
   it('keeps paren interiors as brackets, not boxed fields with a θ hint', () => {

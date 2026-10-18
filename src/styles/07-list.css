@@ -144,37 +144,27 @@ aside {
   align-self: center;
   margin: 0;
 }
-/* Desmos-style: real errors replace the colour dot with a warning triangle; hover explains. */
+/* Desmos-clean: solid ember gutter, white triangle with ! cut out to the gutter colour. */
 .row-warn {
   display: none;
   place-items: center;
   align-self: center;
   width: 22px;
   height: 22px;
+  margin: 0;
   padding: 0;
   border: 0;
-  border-radius: 6px;
-  background: var(--em);
-  color: var(--hot);
+  border-radius: 0;
+  background: none;
+  color: #fff8f0;
   cursor: help;
   animation: row-warn-in 160ms var(--panel-ease);
 }
 .row-warn svg {
-  width: 15px;
-  height: 15px;
-  fill: none;
-  stroke: currentColor;
-  stroke-width: 1.7;
-  stroke-linecap: round;
-  stroke-linejoin: round;
-}
-.row-warn svg path:first-child {
+  display: block;
+  width: 16px;
+  height: 16px;
   fill: currentColor;
-  stroke: none;
-}
-.row-warn svg path:last-child {
-  stroke: var(--on-em);
-  stroke-width: 2.2;
 }
 .row.has-err .dot {
   display: none;
@@ -183,16 +173,23 @@ aside {
   display: grid;
 }
 .row.has-err .gut {
-  background: rgb(var(--em-rgb) / 0.1);
-  box-shadow: inset 2px 0 var(--em);
+  background: var(--em);
+  box-shadow: none;
 }
 .row.has-err .idx {
-  color: var(--hot);
+  color: #fff8f0;
+}
+.row.has-err:focus-within .gut {
+  background: var(--em);
+  box-shadow: none;
+}
+.row.has-err:focus-within .idx {
+  color: #fff8f0;
 }
 @keyframes row-warn-in {
   from {
     opacity: 0;
-    transform: scale(0.86);
+    transform: scale(0.9);
   }
 }
 .fr {
