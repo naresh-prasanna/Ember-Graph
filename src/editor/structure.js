@@ -908,8 +908,9 @@ export function mqInsert(st, name, drop) {
   if (name === 'log' || name === 'deriv') mqEnter(st, n, 1, name === 'deriv' && !!n.blocks[1].items.length);
   else mqEnter(st, n, 0, isTpl(n));
 }
-// Inside tone( … ) the arguments still to come show faintly: "frequency, gain", then ", gain" after the first.
-function paramHint(items, i, inner) {
+// Multi-arg calls (tone, normaldist, …) show the remaining parameter names faintly.
+// Single-arg sin(θ) / cos(θ) must not — a lone "θ" after an empty slot read as a boxed input field.
+export function paramHint(items, i, inner) {
   let j = i;
   while (j > 0 && isL(items[j - 1])) j--;
   const name = items.slice(j, i).join(''),
@@ -923,7 +924,8 @@ function paramHint(items, i, inner) {
     args = splitArgs(inner),
     k = args.length - 1,
     rest = args[k].length ? params.slice(k + 1) : params.slice(k);
-  return rest.length ? (args[k].length ? ', ' : '') + rest.join(', ') : '';
+  if (params.length < 2 || !rest.length) return '';
+  return (args[k].length ? ', ' : '') + rest.join(', ');
 }
 export function mqDraw(st, el) {
   const mk = (t, c) => {

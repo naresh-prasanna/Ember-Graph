@@ -30,9 +30,14 @@
 /* Italic correction only into delimiters/scripts — not before =, digits, or · (that made gello = 10 look blown out). */
 .mq .v + .nd,
 .mq .v + .pb,
-.mq .nd > .blk + .pb,
 .mq .v + sup,
 .mq .v + sub {
+  margin-inline-start: var(--math-italic-corr);
+}
+/* Closing ) after italic content inside a group (caret may sit after the letter). Not every closer —
+   that padded cos(π) and made brackets feel like spaced-out fields. */
+.mq .nd > .blk:has(> .v:last-child) + .pb,
+.mq .nd > .blk:has(> .v + .cur:last-child) + .pb {
   margin-inline-start: var(--math-italic-corr);
 }
 .mq .pb {
@@ -45,6 +50,13 @@
   vertical-align: middle;
   background: rgb(var(--fg-rgb) / 0.08);
   border-radius: 2px;
+}
+/* Paren / abs interiors are brackets, not form fields — no grey slot chrome, just room for the caret. */
+.mq .nd > .blk.e {
+  background: none;
+  min-width: 0.12em;
+  min-height: 0.85em;
+  border-radius: 0;
 }
 .mq .gh {
   opacity: 0.32;

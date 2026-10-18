@@ -38,6 +38,7 @@ import {
   mqSer,
   mqType,
   mqVert,
+  paramHint,
   parenCloserGhost,
 } from '../src/editor/structure.js';
 import { NAMES, SPELLINGS, nameMatch } from '../src/math/names.js';
@@ -816,8 +817,11 @@ describe('math italic correction and delimiter ghosts', () => {
     expect(base).toMatch(/--math-italic:\s*Cambria/);
     expect(base).toMatch(/--math-italic-corr:\s*0\.28em/);
     expect(editor).toMatch(/\.mq \.v\s*\{[^}]*font-family:\s*var\(--math-italic\)/s);
-    // Correction only into delimiters/scripts — not before = or digits.
+    // Correction only into delimiters/scripts — not before = or digits, and not before every ).
     expect(editor).toMatch(/\.mq \.v \+ \.nd,\s*\n\.mq \.v \+ \.pb[\s\S]*margin-inline-start:\s*var\(--math-italic-corr\)/);
+    expect(editor).not.toMatch(/\.mq \.nd > \.blk \+ \.pb\s*[,{]/);
+    expect(editor).toMatch(/\.mq \.nd > \.blk:has\(> \.v:last-child\) \+ \.pb/);
+    expect(editor).toMatch(/\.mq \.nd > \.blk\.e\s*\{[^}]*background:\s*none/s);
     expect(editor).not.toMatch(/\.mq \.v:not\(:has/);
     expect(editor).toMatch(/\.mq \.cur\s*\{[^}]*width:\s*1\.6px/s);
     expect(editor).toMatch(
@@ -833,6 +837,15 @@ describe('math italic correction and delimiter ghosts', () => {
     expect(typeset).toMatch(/var\(--rs-tip\)\s+no-repeat\s+100%\s+0\s*\/\s*5px\s+3px/);
     expect(typeset).toMatch(/\.rad > \.radc\s*\{[^}]*margin-left:\s*-2px/s);
   });
+  it('keeps paren interiors as brackets, not boxed fields with a θ hint', () => {
+    // cos(θ) is one parameter — no faint "θ" after an empty slot (that looked like a second input).
+    expect(paramHint(['c', 'o', 's'], 3, [])).toBe('');
+    expect(paramHint(['s', 'i', 'n'], 3, [])).toBe('');
+    // tone(frequency, gain) still hints the remaining names.
+    expect(paramHint(['t', 'o', 'n', 'e'], 4, [])).toMatch(/frequency/);
+    expect(paramHint(['t', 'o', 'n', 'e'], 4, ['4', '4', '0'])).toMatch(/gain/);
+  });
+
   it('opens f( with a ghost closer only, and clears italic into the following group', () => {
     const st = mqNew('');
     for (const k of [...'f(']) {
