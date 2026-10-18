@@ -801,12 +801,18 @@ describe('math italic correction and delimiter ghosts', () => {
       base = readFileSync(join(root, 'src/styles/01-base.css'), 'utf8');
     expect(base).toMatch(/--math:\s*'Cambria Math'/);
     expect(base).toMatch(/--math-italic:\s*Cambria/);
-    expect(base).toMatch(/--math-italic-corr:\s*0\.42em/);
+    expect(base).toMatch(/--math-italic-corr:\s*0\.5em/);
     expect(editor).toMatch(/\.mq \.v\s*\{[^}]*font-family:\s*var\(--math-italic\)/s);
     expect(editor).toMatch(/padding-inline-end:\s*var\(--math-italic-corr\)/);
+    expect(editor).toMatch(/\.mq \.v \+ \.cur\s*\{[^}]*margin:\s*0 -0\.8px 0 0/s);
     expect(math).toMatch(/padding-inline-end:\s*var\(--math-italic-corr\)/);
     expect(base).toMatch(/\.sl-lim input\s*\{[^}]*font-variant-numeric:\s*tabular-nums/s);
     expect(base).toMatch(/\.sl-lim-name\s*\{[^}]*var\(--math\)/s);
+    const typeset = readFileSync(join(root, 'src/styles/06-typesetting.css'), 'utf8');
+    // Fixed-size tip mask layer joins the stem to the vinculum without stroke clipping.
+    expect(typeset).toMatch(/--rs-tip:/);
+    expect(typeset).toMatch(/var\(--rs-tip\)\s+no-repeat\s+100%\s+0\s*\/\s*5px\s+3px/);
+    expect(typeset).toMatch(/\.rad > \.radc\s*\{[^}]*margin-left:\s*-2px/s);
   });
   it('opens f( with a ghost closer only, and clears italic into the following group', () => {
     const st = mqNew('');

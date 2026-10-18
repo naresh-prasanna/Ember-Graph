@@ -98,9 +98,9 @@
   margin: 0 -0.8px;
   animation: mqblink 1s steps(1) infinite;
 }
-/* Caret after an italic letter: padding-inline-end already clears the overhang. */
+/* Caret after an italic letter: do not pull left into the italic-correction pad. */
 .mq .v + .cur {
-  margin: 0 -0.8px;
+  margin: 0 -0.8px 0 0;
 }
 /* Ctrl+A selects the whole expression. */
 .mq.all > .blk {

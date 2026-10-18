@@ -12,14 +12,18 @@
   margin-top: 3px;
   font-size: 0 !important;
   background: currentColor;
-  /* The hook keeps its shape at the foot; only the long stroke stretches with the radicand. */
+  /* Hook at the foot; stem stretches with the radicand. Tip is a fixed-size mask layer
+     (not a stroked endpoint) so it is not half-clipped at y=0 and always meets the vinculum. */
   --rs-hook: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 13 12'%3E%3Cpath d='M0.4 7.2 L2.9 5.6 L6.4 12 L5 12 L2.5 7.4 L0.9 8.1 Z'/%3E%3C/svg%3E");
-  --rs-stem: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 13 100' preserveAspectRatio='none'%3E%3Cpath d='M5.7 100 L12.3 0' stroke='black' stroke-width='1.4' vector-effect='non-scaling-stroke'/%3E%3C/svg%3E");
+  --rs-stem: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 13 100' preserveAspectRatio='none'%3E%3Cpath d='M5.7 100 L11.8 3' stroke='black' stroke-width='1.5' stroke-linecap='square' vector-effect='non-scaling-stroke' fill='none'/%3E%3C/svg%3E");
+  --rs-tip: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 5 3'%3E%3Crect width='5' height='3' fill='black'/%3E%3C/svg%3E");
   -webkit-mask:
     var(--rs-hook) no-repeat 0 100%/13px 12px,
+    var(--rs-tip) no-repeat 100% 0 / 5px 3px,
     var(--rs-stem) no-repeat 0 0/100% 100%;
   mask:
     var(--rs-hook) no-repeat 0 100%/13px 12px,
+    var(--rs-tip) no-repeat 100% 0 / 5px 3px,
     var(--rs-stem) no-repeat 0 0/100% 100%;
 }
 /* A box not filled in yet, matching the editor's empty slot. */
@@ -102,7 +106,9 @@
 .rad > .radc {
   border-top: 1.5px solid currentColor;
   margin-top: 3px;
-  padding: 0.14em 4px 0.08em 3px;
+  /* Overlap the stem's tip rect so the vinculum and radical read as one stroke. */
+  margin-left: -2px;
+  padding: 0.14em 4px 0.08em 5px;
 }
 .frac {
   margin: 0 4px;

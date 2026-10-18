@@ -27,8 +27,8 @@
      already system faces in the math stack — not new fonts. */
   --math-italic: Cambria, Constantia, Georgia, 'Times New Roman', serif;
   /* Advance past overhanging italic hooks (f, j, y, g, ψ) into ), ], scripts, caret.
-     Closing ) sits tighter against the hook than (; 0.28em still kissed ), 0.42em clears it. */
-  --math-italic-corr: 0.42em;
+     Closing ) sits tighter against the hook than (; 0.42em was still tight in the display. */
+  --math-italic-corr: 0.5em;
   color-scheme: dark;
 }
 * {
