@@ -346,7 +346,7 @@ aside {
   display: flex;
   align-items: center;
   gap: 9px;
-  margin-top: 13px;
+  margin-top: 6px;
   font: 12px var(--sans);
   color: var(--dim);
   font-variant-numeric: tabular-nums;
@@ -405,7 +405,7 @@ aside {
   display: none;
   align-items: center;
   gap: 6px;
-  margin-top: 11px;
+  margin-top: 6px;
   /* ≤ and the variable use the math stack (Cambria Math has ≤; Georgia as fallback). */
   font: 400 16px/1.3 var(--math);
   color: var(--ink-2);

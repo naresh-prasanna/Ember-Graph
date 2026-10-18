@@ -847,20 +847,23 @@ describe('math italic correction and delimiter ghosts', () => {
     expect(ed).toMatch(/\['paren', 'abs'\]/);
   });
 
-  it('closes the keypad with an out animation and warns errors Desmos-style', () => {
+  it('closes the keypad with an out animation and shows errors inline', () => {
     const root = join(dirname(fileURLToPath(import.meta.url)), '..'),
       keypad = readFileSync(join(root, 'src/styles/09-keypad.css'), 'utf8'),
       list = readFileSync(join(root, 'src/styles/07-list.css'), 'utf8'),
       pad = readFileSync(join(root, 'src/ui/keypad.js'), 'utf8'),
-      panel = readFileSync(join(root, 'src/ui/panel.js'), 'utf8');
+      panel = readFileSync(join(root, 'src/ui/panel.js'), 'utf8'),
+      editor = readFileSync(join(root, 'src/editor/mathEditor.js'), 'utf8');
     expect(keypad).toMatch(/@keyframes keypad-out/);
     expect(keypad).toMatch(/\.keypad\.closing/);
     expect(pad).toMatch(/classList\.add\('closing'\)/);
-    expect(list).toMatch(/\.row-warn/);
-    expect(list).toMatch(/\.row\.has-err \.gut\s*\{[^}]*background:\s*var\(--em\)/s);
-    expect(list).toMatch(/\.row-warn\s*\{[^}]*background:\s*none/s);
-    expect(panel).toMatch(/syncRowWarn/);
-    expect(panel).toMatch(/fill-rule="evenodd"/);
+    // Inline error copy under the expression — no gutter triangle.
+    expect(list).not.toMatch(/\.row-warn/);
+    expect(panel).not.toMatch(/syncRowWarn/);
+    expect(panel).not.toMatch(/row-warn/);
+    expect(panel).toMatch(/else if \(r\.err\) r\.errEl\.textContent = r\.err/);
+    // First click on a blank row must load the editor before touching caret state.
+    expect(editor).toMatch(/if \(!st\) load\(\)/);
   });
 
   it('keeps paren interiors as brackets, not boxed fields with a θ hint', () => {

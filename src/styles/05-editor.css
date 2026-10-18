@@ -5,13 +5,13 @@
 .mq {
   display: none;
   position: relative;
-  font: 400 23px/1.5 var(--math);
+  font: 400 23px/1.35 var(--math);
   color: var(--hot);
-  min-height: 36px;
-  padding: 5px 0;
+  min-height: 0;
+  padding: 2px 0;
   outline: none;
   cursor: text;
-  overflow-wrap: anywhere;
+  overflow-wrap: break-word;
 }
 .row:focus-within .mq {
   display: block;
@@ -129,7 +129,8 @@
   }
 }
 
-/* Editor must stay focusable: hide visually, not with display:none */
+/* Editor must stay focusable: hide visually, not with display:none.
+   Collapsed state clears min-height/padding so it cannot inflate .entry. */
 .mq {
   display: block;
   position: absolute;
@@ -137,13 +138,18 @@
   right: 0;
   top: 0;
   height: 0;
+  min-height: 0;
+  padding: 0;
   opacity: 0;
   overflow: hidden;
   pointer-events: none;
 }
-.row:focus-within .mq {
+.row:focus-within .mq:focus,
+.mq:focus {
   position: relative;
   height: auto;
+  min-height: 0;
+  padding: 2px 0;
   opacity: 1;
   overflow: visible;
   pointer-events: auto;

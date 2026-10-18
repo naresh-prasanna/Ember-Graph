@@ -144,54 +144,6 @@ aside {
   align-self: center;
   margin: 0;
 }
-/* Desmos-clean: solid ember gutter, white triangle with ! cut out to the gutter colour. */
-.row-warn {
-  display: none;
-  place-items: center;
-  align-self: center;
-  width: 22px;
-  height: 22px;
-  margin: 0;
-  padding: 0;
-  border: 0;
-  border-radius: 0;
-  background: none;
-  color: #fff8f0;
-  cursor: help;
-  animation: row-warn-in 160ms var(--panel-ease);
-}
-.row-warn svg {
-  display: block;
-  width: 16px;
-  height: 16px;
-  fill: currentColor;
-}
-.row.has-err .dot {
-  display: none;
-}
-.row.has-err .row-warn {
-  display: grid;
-}
-.row.has-err .gut {
-  background: var(--em);
-  box-shadow: none;
-}
-.row.has-err .idx {
-  color: #fff8f0;
-}
-.row.has-err:focus-within .gut {
-  background: var(--em);
-  box-shadow: none;
-}
-.row.has-err:focus-within .idx {
-  color: #fff8f0;
-}
-@keyframes row-warn-in {
-  from {
-    opacity: 0;
-    transform: scale(0.9);
-  }
-}
 .fr {
   display: none;
   place-items: center;
@@ -237,10 +189,10 @@ aside {
   color: var(--hot);
 }
 .col {
-  padding: 10px 6px 10px 14px;
+  padding: 6px 6px 6px 14px;
 }
 .x {
-  margin: 13px 10px 0 0;
+  margin: 8px 10px 0 0;
 }
 .row.blank .dot,
 .row.blank .x {
@@ -249,12 +201,15 @@ aside {
 .row.blank:not(:focus-within) .gut {
   background: none;
 }
+/* Slider / limit fields keep focus in the row: show the typeset line, keep mq collapsed. */
 .row:focus-within:not(:has(.mq:focus)) .equation-display {
   display: block;
 }
 .row:focus-within:not(:has(.mq:focus)) .mq {
   position: absolute;
   height: 0;
+  min-height: 0;
+  padding: 0;
   opacity: 0;
   overflow: hidden;
   pointer-events: none;
@@ -1260,8 +1215,7 @@ body.present .steps-sheet {
 @media (prefers-reduced-motion: reduce) {
   .col-menu,
   .col-menu.closing,
-  .ui-tip,
-  .row-warn {
+  .ui-tip {
     animation: none;
   }
 }

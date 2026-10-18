@@ -119,11 +119,8 @@ export function showError(r) {
       if (!open) r.errEl.append(']');
     } else if (frac && r.asFrac)
       r.errEl.innerHTML = `= ${frac.n < 0 ? '−' : ''}<span class="frac"><span>${Math.abs(frac.n)}</span><span>${frac.d}</span></span>`;
-    else if (r.err && step) r.errEl.textContent = r.err;
-    else if (r.err) {
-      // Real mistakes live on the gutter triangle (Desmos-style); the row stays clean.
-      r.errEl.textContent = '';
-    } else r.errEl.textContent = r.info || '';
+    else if (r.err) r.errEl.textContent = r.err;
+    else r.errEl.textContent = r.info || '';
     r.errEl.classList.toggle('list-open', !r.err && !!r.listOpen && r.listFull?.short === r.info);
     r.errEl.style.color = (r.err && !step) || answer || formula || series || solved ? '' : 'var(--dim)';
     r.errEl.classList.toggle('answer', answer || !!formula || !!series || !!solved);
@@ -131,23 +128,9 @@ export function showError(r) {
     const shown = (r.info || '').replace(/^=\s*/, '').replace(/,/g, '');
     if (answer && r.infoExact && r.infoExact !== shown) setTip(r.errEl, r.infoExact);
     else setTip(r.errEl, '');
-    syncRowWarn(r, !!(r.err && !step));
-  }
-}
-/* Desmos pattern: a warning triangle in the gutter; hover/focus explains the error. */
-function syncRowWarn(r, on) {
-  const row = r.errEl?.closest('.row'),
-    warn = row?.querySelector('.row-warn');
-  if (!row || !warn) return;
-  row.classList.toggle('has-err', on);
-  warn.hidden = !on;
-  r.inp?.setAttribute('aria-invalid', on ? 'true' : 'false');
-  if (on) {
-    setTip(warn, r.err);
-    warn.setAttribute('aria-label', r.err);
-  } else {
-    setTip(warn, '');
-    warn.setAttribute('aria-label', 'Expression error');
+    const bad = !!(r.err && !step);
+    r.errEl.closest('.row')?.classList.toggle('has-err', bad);
+    r.inp?.setAttribute('aria-invalid', bad ? 'true' : 'false');
   }
 }
 export function syncSliders() {
@@ -1197,9 +1180,8 @@ function mountRow(r) {
   el.className = 'row' + (r.off ? ' off' : '');
   el.style.setProperty('--curve', tone(r.col));
   el.innerHTML =
-    '<div class="gut"><span class="idx"></span><button class="dot"></button><button type="button" class="row-warn" hidden aria-label="Expression error"><svg viewBox="0 0 24 24" aria-hidden="true"><path fill-rule="evenodd" d="M12 2.8L21.8 21.2H2.2L12 2.8zm0 5.4a1 1 0 011 1v4.2a1 1 0 11-2 0V9.2a1 1 0 011-1zm0 8.6a1.15 1.15 0 110 2.3 1.15 1.15 0 010-2.3z"/></svg></button><button class="fr" aria-pressed="false"><svg viewBox="0 0 24 24" aria-hidden="true"><rect x="9" y="4.5" width="6" height="5" rx="1.2" /><path d="M6.5 12h11" /><rect x="9" y="14.5" width="6" height="5" rx="1.2" /></svg></button></div><div class="col"><div class="row-label"></div><div class="entry"><div class="equation-display" aria-hidden="true"></div><input type="text" spellcheck="false" autocomplete="off" autocapitalize="off" placeholder="Type an equation"></div><div class="err" role="status"></div><div class="sls"></div></div><button class="x" aria-label="Delete"><svg class="icon" viewBox="0 0 24 24" aria-hidden="true"><path d="m7 7 10 10M17 7 7 17" /></svg></button>';
+    '<div class="gut"><span class="idx"></span><button class="dot"></button><button class="fr" aria-pressed="false"><svg viewBox="0 0 24 24" aria-hidden="true"><rect x="9" y="4.5" width="6" height="5" rx="1.2" /><path d="M6.5 12h11" /><rect x="9" y="14.5" width="6" height="5" rx="1.2" /></svg></button></div><div class="col"><div class="row-label"></div><div class="entry"><div class="equation-display" aria-hidden="true"></div><input type="text" spellcheck="false" autocomplete="off" autocapitalize="off" placeholder="Type an equation"></div><div class="err" role="status"></div><div class="sls"></div></div><button class="x" aria-label="Delete"><svg class="icon" viewBox="0 0 24 24" aria-hidden="true"><path d="m7 7 10 10M17 7 7 17" /></svg></button>';
   el.querySelector('.idx').textContent = i + 1;
-  el.querySelector('.row-warn').onmousedown = e => e.preventDefault();
   const dot = el.querySelector('.dot'),
     touchUi = () => matchMedia('(pointer: coarse)').matches && matchMedia('(hover: none)').matches,
     colorTip = () => (touchUi() ? 'Tap to change color' : 'Right-click to change color');

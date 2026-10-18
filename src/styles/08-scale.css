@@ -70,12 +70,12 @@
   inset: 6px;
 }
 .col {
-  padding: 12px 8px 12px 16px;
+  padding: 6px 8px 6px 16px;
 }
 .x {
   width: 36px;
   height: 36px;
-  margin: 8px 6px 0 0;
+  margin: 4px 6px 0 0;
   padding: 0;
   border-radius: 7px;
 }
@@ -84,13 +84,14 @@
 }
 .err {
   font-size: 12px;
+  padding-top: 2px;
 }
 .err.answer {
   font-size: 22px;
 }
 .sl {
   gap: 11px;
-  margin-top: 14px;
+  margin-top: 6px;
   font-size: 12px;
 }
 .sl input {

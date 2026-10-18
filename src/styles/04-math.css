@@ -119,8 +119,9 @@
 }
 
 .entry {
+  position: relative;
   height: auto;
-  min-height: 36px;
+  min-height: 34px;
   display: block;
 }
 .equation-display {
@@ -129,14 +130,15 @@
   display: block;
   white-space: normal;
   overflow: visible;
-  min-height: 36px;
-  line-height: 1.5;
-  padding: 5px 0;
-  overflow-wrap: anywhere;
+  min-height: 0;
+  line-height: 1.35;
+  padding: 2px 0;
+  /* Break long expressions at operators (&#8203;), not mid-glyph. */
+  overflow-wrap: break-word;
 }
+/* Preview stays hidden while the structured editor is the focused surface. */
 .row:focus-within .equation-display {
-  display: block;
-  visibility: visible;
+  display: none;
 }
 .col input[type='text'] {
   position: absolute;

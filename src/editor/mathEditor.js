@@ -94,6 +94,8 @@ export function makeEditor(r) {
   /* Puts the cursor at the screen point x, y. A click on the typeset preview lands here too, once the
      editor has taken its place, so the cursor goes where the click was rather than where it last was. */
   const placeAt = (x, y) => {
+    // First click on a never-focused row: st is still null until focus runs load().
+    if (!st) load();
     st.all = false;
     const apply = () => {
       let t = document.elementFromPoint(x, y),
