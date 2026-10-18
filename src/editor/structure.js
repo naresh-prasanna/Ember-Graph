@@ -564,9 +564,6 @@ export function mqBack(st) {
 /* Brackets work like MathQuill (Desmos): '(' opens a group whose closing side is a dim "ghost" until you close it;
    ')' closes the nearest open group (or wraps everything to its left if none is open). Backspace on a bracket
    removes just that bracket and the group re-forms around its neighbours. */
-/* Brackets work like MathQuill (Desmos): '(' opens a group whose closing side is a dim "ghost" until you close it;
-   ')' closes the nearest open group (or wraps everything to its left if none is open). Backspace on a bracket
-   removes just that bracket and the group re-forms around its neighbours. */
 const isP = x => !!x && typeof x === 'object' && x.t === 'paren';
 /* Ghost styling is only for an untyped closing delimiter (gr). A completed pair — including one
    whose opener was auto-inserted by typing ')' — draws both sides at full weight. */

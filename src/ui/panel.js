@@ -117,9 +117,16 @@ export function showError(r) {
       r.errEl.textContent = open ? L.full + ' ' : L.short.slice(0, L.short.lastIndexOf(', …')) + ', ';
       r.errEl.append(b);
       if (!open) r.errEl.append(']');
-    } else if (frac && r.asFrac)
+    }     else if (frac && r.asFrac)
       r.errEl.innerHTML = `= ${frac.n < 0 ? '−' : ''}<span class="frac"><span>${Math.abs(frac.n)}</span><span>${frac.d}</span></span>`;
-    else r.errEl.textContent = r.err || r.info;
+    else if (r.err) {
+      // Keep the sentence in the UI sans, but set the name and the example formula in math italic.
+      const undef = r.err.match(/^(.*?) isn't defined\. Add a row like (.*)$/);
+      r.errEl.innerHTML = undef
+        ? `${nm(undef[1])} isn't defined. Add a row like <span class="mi">${pretty(undef[2])}</span>`
+        : '';
+      if (!undef) r.errEl.textContent = r.err;
+    } else r.errEl.textContent = r.info || '';
     r.errEl.classList.toggle('list-open', !r.err && !!r.listOpen && r.listFull?.short === r.info);
     r.errEl.style.color = (r.err && !step) || answer || formula || series || solved ? '' : 'var(--dim)';
     r.errEl.classList.toggle('answer', answer || !!formula || !!series || !!solved);

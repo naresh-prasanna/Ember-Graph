@@ -49,13 +49,22 @@
 }
 .equation-display i,
 .err.answer i,
+.err .mi i,
 .step-work i,
 .ss-title i,
 .mi i,
 .sl-lim-name i {
+  font-family: var(--math-italic);
   font-style: italic;
   /* Same italic correction as .mq .v — display/results use <i>, not .v. */
-  padding-inline-end: 0.12em;
+  padding-inline-end: var(--math-italic-corr);
+}
+/* Prose errors that embed a formula example keep math glyphs on the math stack. */
+.err .mi {
+  font-family: var(--math);
+  font-size: 1.05em;
+  color: inherit;
+  margin-inline: 0.06em;
 }
 .equation-display sup,
 .equation-display sub {

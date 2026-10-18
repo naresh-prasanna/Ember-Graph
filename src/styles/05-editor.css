@@ -20,10 +20,10 @@
   display: none;
 }
 .mq .v {
+  font-family: var(--math-italic);
   font-style: italic;
-  /* Italic correction: CSS italic on Cambria Math has no OpenType MATH italic-correction,
-     so overhanging letters (f, j, y, …) collide with ), ], superscripts and the caret. */
-  padding-inline-end: 0.12em;
+  /* Italic correction: text italic faces still overhang; pad so f(, (f), f² stay clear. */
+  padding-inline-end: var(--math-italic-corr);
 }
 /* Shared by the editor and the typeset preview, so a row does not shift when clicked into. */
 .op {
@@ -31,10 +31,11 @@
 }
 /* Extra advance into a following delimiter or script (f(x), (f), f²). */
 .mq .v + .nd,
+.mq .v + .pb,
 .mq .nd > .blk + .pb,
 .mq .v + sup,
 .mq .v + sub {
-  margin-inline-start: 0.04em;
+  margin-inline-start: 0.08em;
 }
 .mq .pb {
   font-size: 1.12em;

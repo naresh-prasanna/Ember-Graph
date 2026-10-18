@@ -13,8 +13,8 @@ Requires mcp-probe-kit. Before coding, read Skill: @.agents/skills/mcp-probe-kit
 - Missing context → `init_project_context`
 - Commit → `gencommit`
 
-Context: read [project-context](./docs/project-context.md) after Agent creates it (`init_project_context` + templates)
-Graph: read [latest](./docs/graph-insights/latest.md) after Agent saves code_insight output (save_to_docs=true)
+Context: before coding read [project-context](./docs/project-context.md) (links to `docs/project-context/`)
+Graph: read [latest](./docs/graph-insights/latest.md) before large changes; refresh `code_insight` mode=auto save_to_docs=true
 Memory (requires MEMORY_* env):
 - Search: `start_*` auto-injects full memory hits; use `search_memory` mid-task; `read_memory_asset` for a specific id
 - Store: do NOT use source_project/source_path for cross-repo pools; put paths in content; write keyword-rich summary

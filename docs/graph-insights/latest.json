@@ -1,0 +1,11 @@
+{
+  "status": "degraded",
+  "provider": "local-source-evidence",
+  "focus": ["mqDraw", "italic correction", "parenCloserGhost", "styleMath"],
+  "files": [
+    "src/editor/structure.js",
+    "src/styles/05-editor.css",
+    "src/styles/04-math.css",
+    "src/ui/mathDisplay.js"
+  ]
+}

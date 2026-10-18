@@ -22,6 +22,13 @@
   --mono: ui-monospace, 'Cascadia Code', Consolas, monospace;
   --sans: Inter, 'Segoe UI', Arial, sans-serif;
   --math: 'Cambria Math', 'STIX Two Math', Georgia, serif;
+  /* Text italics for variables: Cambria Math has no italic Latin face, so CSS italic
+     synthesizes or falls back and loses italic correction. Cambria/Constantia/Georgia are
+     already system faces in the math stack — not new fonts. */
+  --math-italic: Cambria, Constantia, Georgia, 'Times New Roman', serif;
+  /* Advance past overhanging italic hooks (f, j, y, g, ψ) into ), ], scripts, caret.
+     Closing ) sits tighter against the hook than (; 0.28em still kissed ), 0.42em clears it. */
+  --math-italic-corr: 0.42em;
   color-scheme: dark;
 }
 * {

@@ -800,10 +800,25 @@ describe('math italic correction and delimiter ghosts', () => {
       math = readFileSync(join(root, 'src/styles/04-math.css'), 'utf8'),
       base = readFileSync(join(root, 'src/styles/01-base.css'), 'utf8');
     expect(base).toMatch(/--math:\s*'Cambria Math'/);
-    expect(editor).toMatch(/\.mq \.v\s*\{[^}]*padding-inline-end:\s*0\.12em/s);
-    expect(math).toMatch(/padding-inline-end:\s*0\.12em/);
+    expect(base).toMatch(/--math-italic:\s*Cambria/);
+    expect(base).toMatch(/--math-italic-corr:\s*0\.42em/);
+    expect(editor).toMatch(/\.mq \.v\s*\{[^}]*font-family:\s*var\(--math-italic\)/s);
+    expect(editor).toMatch(/padding-inline-end:\s*var\(--math-italic-corr\)/);
+    expect(math).toMatch(/padding-inline-end:\s*var\(--math-italic-corr\)/);
     expect(base).toMatch(/\.sl-lim input\s*\{[^}]*font-variant-numeric:\s*tabular-nums/s);
     expect(base).toMatch(/\.sl-lim-name\s*\{[^}]*var\(--math\)/s);
+  });
+  it('opens f( with a ghost closer only, and clears italic into the following group', () => {
+    const st = mqNew('');
+    for (const k of [...'f(']) {
+      mqType(st, k);
+      mqPrune(st);
+    }
+    // f then '(' → variable + paren group with gr (ghost closer), not a ghost opener.
+    expect(st.root.items[0]).toBe('f');
+    expect(st.root.items[1].t).toBe('paren');
+    expect(parenCloserGhost(st.root.items[1])).toBe(true);
+    expect(st.root.items[1].gl).toBeFalsy();
   });
 });
 
