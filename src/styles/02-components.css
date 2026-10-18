@@ -112,6 +112,21 @@
 #completions[hidden] {
   display: none;
 }
+#completions.closing {
+  pointer-events: none;
+  animation: completions-out 120ms cubic-bezier(0.4, 0, 1, 1) forwards;
+}
+@keyframes completions-out {
+  to {
+    opacity: 0;
+    transform: translateY(4px);
+  }
+}
+@media (prefers-reduced-motion: reduce) {
+  #completions.closing {
+    animation: none;
+  }
+}
 .completion-head {
   padding: 7px 8px 10px;
   font-size: 8px;

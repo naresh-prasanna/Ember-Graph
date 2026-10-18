@@ -837,6 +837,21 @@ describe('math italic correction and delimiter ghosts', () => {
     expect(typeset).toMatch(/var\(--rs-tip\)\s+no-repeat\s+100%\s+0\s*\/\s*5px\s+3px/);
     expect(typeset).toMatch(/\.rad > \.radc\s*\{[^}]*margin-left:\s*-2px/s);
   });
+  it('closes the keypad with an out animation and warns errors Desmos-style', () => {
+    const root = join(dirname(fileURLToPath(import.meta.url)), '..'),
+      keypad = readFileSync(join(root, 'src/styles/09-keypad.css'), 'utf8'),
+      list = readFileSync(join(root, 'src/styles/07-list.css'), 'utf8'),
+      pad = readFileSync(join(root, 'src/ui/keypad.js'), 'utf8'),
+      panel = readFileSync(join(root, 'src/ui/panel.js'), 'utf8');
+    expect(keypad).toMatch(/@keyframes keypad-out/);
+    expect(keypad).toMatch(/\.keypad\.closing/);
+    expect(pad).toMatch(/classList\.add\('closing'\)/);
+    expect(list).toMatch(/\.row-warn/);
+    expect(list).toMatch(/\.row\.has-err \.row-warn/);
+    expect(panel).toMatch(/syncRowWarn/);
+    expect(panel).toMatch(/class="row-warn"/);
+  });
+
   it('keeps paren interiors as brackets, not boxed fields with a θ hint', () => {
     // cos(θ) is one parameter — no faint "θ" after an empty slot (that looked like a second input).
     expect(paramHint(['c', 'o', 's'], 3, [])).toBe('');

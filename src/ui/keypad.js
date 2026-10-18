@@ -334,12 +334,27 @@ function setPage(page) {
     .querySelectorAll('[role=tab]')
     .forEach(t => t.setAttribute('aria-selected', String(t.dataset.page === page)));
 }
+const reduceMotion = () => matchMedia('(prefers-reduced-motion: reduce)').matches;
 function show(open) {
   if (!open) hideTip();
-  pad.hidden = !open;
-  toggle.setAttribute('aria-expanded', String(open));
-  document.body.classList.toggle('keypad-open', open);
-  document.body.style.setProperty('--kp-h', open ? pad.offsetHeight + 'px' : '0px');
+  toggle.setAttribute('aria-expanded', String(!!open));
+  if (open) {
+    pad.classList.remove('closing');
+    pad.hidden = false;
+    document.body.classList.add('keypad-open');
+    document.body.style.setProperty('--kp-h', pad.offsetHeight + 'px');
+    return;
+  }
+  if (pad.hidden && !pad.classList.contains('closing')) return;
+  document.body.style.setProperty('--kp-h', '0px');
+  if (reduceMotion() || pad.hidden) {
+    pad.classList.remove('closing');
+    pad.hidden = true;
+    document.body.classList.remove('keypad-open');
+    return;
+  }
+  // Leave is quicker than arrive — same idea as the steps sheet.
+  pad.classList.add('closing');
 }
 export function initKeypad() {
   tip.className = 'kp-tip';
@@ -348,9 +363,16 @@ export function initKeypad() {
   document.body.append(tip);
   pad.querySelector('.kp-hide').innerHTML = ICON.hide;
   build();
+  pad.addEventListener('animationend', e => {
+    if (e.target !== pad || !pad.classList.contains('closing')) return;
+    pad.classList.remove('closing');
+    pad.hidden = true;
+    document.body.classList.remove('keypad-open');
+  });
   toggle.onclick = () => {
-    show(pad.hidden);
-    if (!pad.hidden) editor()?.focus();
+    const opening = pad.hidden || pad.classList.contains('closing');
+    show(opening);
+    if (opening) editor()?.focus();
   };
   pad.querySelector('.kp-hide').onclick = () => show(false);
   pad.querySelectorAll('[role=tab]').forEach(t => {

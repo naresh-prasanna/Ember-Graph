@@ -144,6 +144,57 @@ aside {
   align-self: center;
   margin: 0;
 }
+/* Desmos-style: real errors replace the colour dot with a warning triangle; hover explains. */
+.row-warn {
+  display: none;
+  place-items: center;
+  align-self: center;
+  width: 22px;
+  height: 22px;
+  padding: 0;
+  border: 0;
+  border-radius: 6px;
+  background: var(--em);
+  color: var(--hot);
+  cursor: help;
+  animation: row-warn-in 160ms var(--panel-ease);
+}
+.row-warn svg {
+  width: 15px;
+  height: 15px;
+  fill: none;
+  stroke: currentColor;
+  stroke-width: 1.7;
+  stroke-linecap: round;
+  stroke-linejoin: round;
+}
+.row-warn svg path:first-child {
+  fill: currentColor;
+  stroke: none;
+}
+.row-warn svg path:last-child {
+  stroke: var(--on-em);
+  stroke-width: 2.2;
+}
+.row.has-err .dot {
+  display: none;
+}
+.row.has-err .row-warn {
+  display: grid;
+}
+.row.has-err .gut {
+  background: rgb(var(--em-rgb) / 0.1);
+  box-shadow: inset 2px 0 var(--em);
+}
+.row.has-err .idx {
+  color: var(--hot);
+}
+@keyframes row-warn-in {
+  from {
+    opacity: 0;
+    transform: scale(0.86);
+  }
+}
 .fr {
   display: none;
   place-items: center;
@@ -1212,7 +1263,8 @@ body.present .steps-sheet {
 @media (prefers-reduced-motion: reduce) {
   .col-menu,
   .col-menu.closing,
-  .ui-tip {
+  .ui-tip,
+  .row-warn {
     animation: none;
   }
 }

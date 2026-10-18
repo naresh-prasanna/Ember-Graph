@@ -117,15 +117,12 @@ export function showError(r) {
       r.errEl.textContent = open ? L.full + ' ' : L.short.slice(0, L.short.lastIndexOf(', …')) + ', ';
       r.errEl.append(b);
       if (!open) r.errEl.append(']');
-    }     else if (frac && r.asFrac)
+    } else if (frac && r.asFrac)
       r.errEl.innerHTML = `= ${frac.n < 0 ? '−' : ''}<span class="frac"><span>${Math.abs(frac.n)}</span><span>${frac.d}</span></span>`;
+    else if (r.err && step) r.errEl.textContent = r.err;
     else if (r.err) {
-      // Keep the sentence in the UI sans, but set the name and the example formula in math italic.
-      const undef = r.err.match(/^(.*?) isn't defined\. Add a row like (.*)$/);
-      r.errEl.innerHTML = undef
-        ? `${nm(undef[1])} isn't defined. Add a row like <span class="mi">${pretty(undef[2])}</span>`
-        : '';
-      if (!undef) r.errEl.textContent = r.err;
+      // Real mistakes live on the gutter triangle (Desmos-style); the row stays clean.
+      r.errEl.textContent = '';
     } else r.errEl.textContent = r.info || '';
     r.errEl.classList.toggle('list-open', !r.err && !!r.listOpen && r.listFull?.short === r.info);
     r.errEl.style.color = (r.err && !step) || answer || formula || series || solved ? '' : 'var(--dim)';
@@ -134,6 +131,22 @@ export function showError(r) {
     // so a stale tip (e.g. "1" from a previous answer) can't linger on "= —" or an error.
     if (answer && r.infoExact) setTip(r.errEl, r.infoExact);
     else setTip(r.errEl, '');
+    syncRowWarn(r, !!(r.err && !step));
+  }
+}
+/* Desmos pattern: a warning triangle in the gutter; hover/focus explains the error. */
+function syncRowWarn(r, on) {
+  const row = r.errEl?.closest('.row'),
+    warn = row?.querySelector('.row-warn');
+  if (!row || !warn) return;
+  row.classList.toggle('has-err', on);
+  warn.hidden = !on;
+  if (on) {
+    setTip(warn, r.err);
+    warn.setAttribute('aria-label', r.err);
+  } else {
+    setTip(warn, '');
+    warn.setAttribute('aria-label', 'Expression error');
   }
 }
 export function syncSliders() {
@@ -1183,8 +1196,9 @@ function mountRow(r) {
   el.className = 'row' + (r.off ? ' off' : '');
   el.style.setProperty('--curve', tone(r.col));
   el.innerHTML =
-    '<div class="gut"><span class="idx"></span><button class="dot"></button><button class="fr" aria-pressed="false"><svg viewBox="0 0 24 24" aria-hidden="true"><rect x="9" y="4.5" width="6" height="5" rx="1.2" /><path d="M6.5 12h11" /><rect x="9" y="14.5" width="6" height="5" rx="1.2" /></svg></button></div><div class="col"><div class="row-label"></div><div class="entry"><div class="equation-display" aria-hidden="true"></div><input type="text" spellcheck="false" autocomplete="off" autocapitalize="off" placeholder="Type an equation"></div><div class="err" role="status"></div><div class="sls"></div></div><button class="x" aria-label="Delete"><svg class="icon" viewBox="0 0 24 24" aria-hidden="true"><path d="m7 7 10 10M17 7 7 17" /></svg></button>';
+    '<div class="gut"><span class="idx"></span><button class="dot"></button><button type="button" class="row-warn" hidden aria-label="Expression error"><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M12 3.5L22 20.5H2L12 3.5z"/><path d="M12 9v5.5M12 17.5h.01"/></svg></button><button class="fr" aria-pressed="false"><svg viewBox="0 0 24 24" aria-hidden="true"><rect x="9" y="4.5" width="6" height="5" rx="1.2" /><path d="M6.5 12h11" /><rect x="9" y="14.5" width="6" height="5" rx="1.2" /></svg></button></div><div class="col"><div class="row-label"></div><div class="entry"><div class="equation-display" aria-hidden="true"></div><input type="text" spellcheck="false" autocomplete="off" autocapitalize="off" placeholder="Type an equation"></div><div class="err" role="status"></div><div class="sls"></div></div><button class="x" aria-label="Delete"><svg class="icon" viewBox="0 0 24 24" aria-hidden="true"><path d="m7 7 10 10M17 7 7 17" /></svg></button>';
   el.querySelector('.idx').textContent = i + 1;
+  el.querySelector('.row-warn').onmousedown = e => e.preventDefault();
   const dot = el.querySelector('.dot'),
     touchUi = () => matchMedia('(pointer: coarse)').matches && matchMedia('(hover: none)').matches,
     colorTip = () => (touchUi() ? 'Tap to change color' : 'Right-click to change color');

@@ -194,10 +194,20 @@
 .presets-menu[hidden] {
   display: none;
 }
+.presets-menu.closing {
+  pointer-events: none;
+  animation: presets-out 120ms cubic-bezier(0.4, 0, 1, 1) forwards;
+}
 @keyframes presets-in {
   from {
     opacity: 0;
     transform: scale(0.97) translateY(-4px);
+  }
+}
+@keyframes presets-out {
+  to {
+    opacity: 0;
+    transform: scale(0.97) translateY(-3px);
   }
 }
 .presets-menu button {

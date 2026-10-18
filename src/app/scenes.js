@@ -417,11 +417,27 @@ function deletePreset(id) {
 
 function presetsMenu(open, focusToggle = false) {
   const menu = $('#presets-menu');
-  if (open === !menu.hidden) return;
-  menu.hidden = !open;
-  $('#presets').setAttribute('aria-expanded', String(open));
-  if (open) (menu.querySelector('[data-scene].active') || menu.querySelector('button')).focus();
-  else if (focusToggle) $('#presets').focus();
+  if (open) {
+    if (!menu.hidden && !menu.classList.contains('closing')) return;
+    menu.classList.remove('closing');
+    menu.hidden = false;
+    $('#presets').setAttribute('aria-expanded', 'true');
+    (menu.querySelector('[data-scene].active') || menu.querySelector('button')).focus();
+    return;
+  }
+  if (menu.hidden && !menu.classList.contains('closing')) return;
+  $('#presets').setAttribute('aria-expanded', 'false');
+  const finish = () => {
+    menu.classList.remove('closing');
+    menu.hidden = true;
+    if (focusToggle) $('#presets').focus();
+  };
+  if (matchMedia('(prefers-reduced-motion: reduce)').matches || menu.hidden) {
+    finish();
+    return;
+  }
+  menu.classList.add('closing');
+  menu.addEventListener('animationend', e => e.target === menu && finish(), { once: true });
 }
 export function initScenes() {
   renderPresets();

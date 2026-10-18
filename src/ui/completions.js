@@ -61,13 +61,32 @@ export const STATS = {
 };
 /* Context-aware expression completions: local math catalog, no network requests. */
 const completionBox = document.createElement('div');
-export function closeCompletions() {
+export function closeCompletions(immediate = false) {
   if (S.completion) {
     S.completion.r.inp.setAttribute('aria-expanded', 'false');
     S.completion.r.inp.removeAttribute('aria-activedescendant');
   }
   S.completion = null;
-  completionBox.hidden = true;
+  if (
+    immediate ||
+    completionBox.hidden ||
+    matchMedia('(prefers-reduced-motion: reduce)').matches
+  ) {
+    completionBox.classList.remove('closing');
+    completionBox.hidden = true;
+    return;
+  }
+  if (completionBox.classList.contains('closing')) return;
+  completionBox.classList.add('closing');
+  completionBox.addEventListener(
+    'animationend',
+    e => {
+      if (e.target !== completionBox) return;
+      completionBox.classList.remove('closing');
+      completionBox.hidden = true;
+    },
+    { once: true },
+  );
 }
 function completionItems(r) {
   const input = r.inp,
@@ -382,7 +401,7 @@ export function acceptCompletion() {
 }
 export function updateCompletions(r) {
   const items = completionItems(r);
-  closeCompletions();
+  closeCompletions(true);
   if (!items.length) return;
   S.completion = {
     r,

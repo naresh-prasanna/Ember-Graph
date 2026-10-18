@@ -53,6 +53,10 @@
 .keypad[hidden] {
   display: none;
 }
+.keypad.closing {
+  pointer-events: none;
+  animation: keypad-out 160ms cubic-bezier(0.4, 0, 1, 1) forwards;
+}
 body.panel-hidden .keypad,
 body.present .keypad {
   left: 24px;
@@ -61,6 +65,12 @@ body.present .keypad {
   from {
     opacity: 0;
     transform: translateY(16px);
+  }
+}
+@keyframes keypad-out {
+  to {
+    opacity: 0;
+    transform: translateY(12px);
   }
 }
 .kp-head {
@@ -351,6 +361,7 @@ body.present .keypad {
 
 @media (prefers-reduced-motion: reduce) {
   .keypad,
+  .keypad.closing,
   .kp-tip {
     animation: none;
   }
