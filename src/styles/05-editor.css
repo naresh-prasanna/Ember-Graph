@@ -98,10 +98,10 @@
   vertical-align: text-bottom;
   animation: mqblink 1s steps(1) infinite;
 }
-/* Small nudge past italic overhang; caret already paints to the right of the insert point. */
+/* Clear italic overhang (esp. f's hook) into the caret — same corr as delimiters; bar still zero-width. */
 .mq .v + .cur {
-  margin-left: 0.06em;
-  margin-right: calc(-1.6px - 0.06em);
+  margin-left: var(--math-italic-corr);
+  margin-right: calc(-1.6px - var(--math-italic-corr));
 }
 /* Ctrl+A selects the whole expression. */
 .mq.all > .blk {

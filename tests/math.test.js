@@ -807,7 +807,9 @@ describe('math italic correction and delimiter ghosts', () => {
     expect(editor).toMatch(/\.mq \.v \+ \.nd,\s*\n\.mq \.v \+ \.pb[\s\S]*margin-inline-start:\s*var\(--math-italic-corr\)/);
     expect(editor).not.toMatch(/\.mq \.v:not\(:has/);
     expect(editor).toMatch(/\.mq \.cur\s*\{[^}]*width:\s*1\.6px/s);
-    expect(editor).toMatch(/\.mq \.v \+ \.cur\s*\{[^}]*margin-left:\s*0\.06em/s);
+    expect(editor).toMatch(
+      /\.mq \.v \+ \.cur\s*\{[^}]*margin-left:\s*var\(--math-italic-corr\)/s,
+    );
     expect(math).toMatch(/i:has\(\+ :is\(sup, sub\)\)|i:has\(\+ sup\)/);
     expect(base).toMatch(/\.sl-lim input\s*\{[^}]*font-variant-numeric:\s*tabular-nums/s);
     expect(base).toMatch(/\.sl-lim-name\s*\{[^}]*var\(--math\)/s);
