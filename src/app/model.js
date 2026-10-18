@@ -1179,6 +1179,19 @@ function calcInfo(r) {
   try {
     S.env.cache = nullObj();
     const v = ddValue(r.k.c, val);
+    // Bare sin / cos / f — evaluate to the JS function. Show a Desmos-style prompt, not "= —".
+    if (typeof v === 'function') {
+      const n =
+        r.k?.bare?.ast?.k === 'name'
+          ? r.k.bare.ast.n
+          : r.k?.c?.ast?.k === 'name'
+            ? r.k.c.ast.n
+            : null;
+      r.err = n
+        ? `Function "${n}" needs an argument. Try ${n}(x).`
+        : 'This is a function — call it with an argument, like f(x).';
+      return;
+    }
     r.value = carded(v) ? v : null;
     r.infoExact = '';
     if (Array.isArray(v)) r.info = '= ' + listFmt(v, r);

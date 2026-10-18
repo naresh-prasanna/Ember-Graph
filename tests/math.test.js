@@ -325,6 +325,19 @@ describe('parser and evaluator', () => {
     expect(() => calc('q+1')).toThrow('Undefined variable: q');
   });
 
+  it('leaves bare sin as the function itself (calc rows turn that into a needs-argument error)', () => {
+    expect(typeof calc('sin')).toBe('function');
+    expect(typeof calc('cos')).toBe('function');
+    expect(calc('sin(0)')).toBeCloseTo(0, 12);
+    const model = readFileSync(join(dirname(fileURLToPath(import.meta.url)), '../src/app/model.js'), 'utf8');
+    expect(model).toMatch(/typeof v === 'function'/);
+    expect(model).toMatch(/Function "\$\{n\}" needs an argument/);
+    const panel = readFileSync(join(dirname(fileURLToPath(import.meta.url)), '../src/ui/panel.js'), 'utf8');
+    // Echo tips on the input were the nonsensical "1"/stale popup next to sin.
+    expect(panel).toMatch(/if \(r\.inp\) setTip\(r\.inp, ''\)/);
+    expect(panel).toMatch(/else setTip\(r\.errEl, ''\)/);
+  });
+
   it('explains misplaced commas and brackets in plain words', () => {
     expect(() => compileExpr('a*cos(t), sin(t)')).toThrow('A comma can only separate');
     expect(() => compileExpr('(x+1')).toThrow('A ( is missing its closing )');

@@ -130,10 +130,10 @@ export function showError(r) {
     r.errEl.classList.toggle('list-open', !r.err && !!r.listOpen && r.listFull?.short === r.info);
     r.errEl.style.color = (r.err && !step) || answer || formula || series || solved ? '' : 'var(--dim)';
     r.errEl.classList.toggle('answer', answer || !!formula || !!series || !!solved);
-    // Full-precision value behind a rounded numeric readout.
+    // Full-precision value behind a rounded numeric readout; clear when there isn't one
+    // so a stale tip (e.g. "1" from a previous answer) can't linger on "= —" or an error.
     if (answer && r.infoExact) setTip(r.errEl, r.infoExact);
-    else if (r.value instanceof Color) setTip(r.errEl, '');
-    else if (!answer && !formula && !series && !solved) setTip(r.errEl, '');
+    else setTip(r.errEl, '');
   }
 }
 export function syncSliders() {
@@ -1101,11 +1101,10 @@ export function decorate(r) {
     r.preview.innerHTML = r.text.trim().startsWith('"')
       ? r.text.replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/^\s*"/, '').replace(/"\s*$/, '')
       : pretty(r.text);
-    setTip(r.preview, r.text);
+    // Don't echo the expression in a tip — you already see it; that popup read as noise.
+    setTip(r.preview, '');
   }
-  if (r.inp) setTip(r.inp, r.text);
-  // The rgb · hsv readout must stay clear of hover tips.
-  if (r.errEl && r.value instanceof Color) setTip(r.errEl, '');
+  if (r.inp) setTip(r.inp, '');
   if (r.label)
     r.label.textContent =
       ({
